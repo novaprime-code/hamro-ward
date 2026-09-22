@@ -1,0 +1,32 @@
+name: hamro-ward-dev
+
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    container_name: hw-db
+    environment:
+      POSTGRES_DB: hw_central
+      POSTGRES_USER: hw_owner
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - hw-db-data:/var/lib/postgresql/data
+      - ../docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hw_owner -d hw_central"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: hw-mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web UI
+    environment:
+      MP_MAX_MESSAGES: 500
+
+volumes:
+  hw-db-data:

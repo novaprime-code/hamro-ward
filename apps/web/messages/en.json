@@ -1,0 +1,15 @@
+{
+  "site.name": "Hamro Ward",
+  "site.tagline": "Your ward, your information, your voice",
+  "home.title": "Who represents your ward, and where that information comes from",
+  "home.intro": "Every fact here shows its source. Anything we cannot verify is shown as unverified, not as a fact.",
+  "home.wardPlateLabel": "Ward no.",
+  "home.sourcesLink": "How sources work",
+  "beta.banner": "This is a beta. Information may be incomplete. Tell us if you spot an error.",
+  "status.apiOk": "Service healthy",
+  "status.apiDown": "Service problem",
+  "footer.about": "About",
+  "footer.privacy": "Privacy",
+  "footer.sources": "Sources",
+  "locale.switch": "नेपाली"
+}

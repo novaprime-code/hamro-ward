@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+apps/api/vendor/
+
+# builds
+apps/web/.next/
+apps/web/out/
+apps/web/next-env.d.ts
+
+# env & secrets
+.env
+.env.*
+!.env.example
+*.age
+*.dump
+
+# laravel
+apps/api/storage/*.key
+apps/api/storage/framework/cache/*
+apps/api/storage/framework/sessions/*
+apps/api/storage/framework/views/*
+apps/api/storage/logs/*
+apps/api/bootstrap/cache/*
+apps/api/.phpunit.result.cache
+apps/api/.phpstan.cache/
+
+# tooling
+.DS_Store
+.idea/
+.vscode/
+tools/backlog/__pycache__/
+tools/backlog/.github_import_state.json

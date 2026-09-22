@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Backlog task
+    url: https://github.com/
+    about: Planned work comes from tools/backlog/build_backlog.py — edit the builder and re-import instead of hand-writing task issues.

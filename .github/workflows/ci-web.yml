@@ -1,0 +1,50 @@
+name: web
+
+on:
+  push:
+    branches: [main]
+    paths: ["apps/web/**", "packages/**", ".github/workflows/ci-web.yml"]
+  pull_request:
+    paths: ["apps/web/**", "packages/**", ".github/workflows/ci-web.yml"]
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm --filter web lint
+
+      - name: Types
+        run: pnpm --filter web exec tsc --noEmit
+
+      - name: Tests
+        run: pnpm --filter web test -- --run
+
+      - name: Build
+        run: pnpm --filter web build
+        env:
+          API_INTERNAL_URL: http://localhost:8000
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+      - name: Dependency audit
+        run: pnpm audit --audit-level high
+        continue-on-error: true

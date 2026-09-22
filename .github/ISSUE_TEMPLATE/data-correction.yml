@@ -1,0 +1,22 @@
+name: Data correction
+description: A fact on the site is wrong or unsourced
+labels: ["type-data"]
+body:
+  - type: input
+    id: url
+    attributes:
+      label: Page URL
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What is wrong
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source supporting the correction (title, publisher, link, date)
+    validations:
+      required: true

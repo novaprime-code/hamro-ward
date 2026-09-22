@@ -1,0 +1,11 @@
+# Default reviewer
+*                       @novaprime-code
+
+# Frontend
+/apps/web/              @novaprime-code
+# Backend & infrastructure
+/apps/api/              @novaprime-code
+/infra/                 @novaprime-code
+# Documents and plan: changes need a second look
+/docs/                  @novaprime-code
+/tools/backlog/         @novaprime-code

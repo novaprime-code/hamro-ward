@@ -1,0 +1,32 @@
+name: Bug
+description: Something behaves incorrectly
+labels: ["type-bug"]
+body:
+  - type: input
+    id: task
+    attributes:
+      label: Related task ID (if any)
+      placeholder: HW-E08-F01-T02
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device, browser, locale, network
+      placeholder: Android 13 Chrome, ne, 4G

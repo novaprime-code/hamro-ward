@@ -1,0 +1,15 @@
+includes:
+    # Larastan is published as larastan/larastan; older installs use
+    # vendor/nunomaduro/larastan/extension.neon — fix the path if this errors.
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 6
+    paths:
+        - app
+        - database
+        - tests
+    tmpDir: .phpstan.cache
+    checkModelProperties: true
+    checkOctaneCompatibility: false
+    ignoreErrors: []
