@@ -1,24 +1,25 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Database\Seeders;
 
+use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
-/**
- * Central reference data. Module seeders are added as they arrive:
- *   positions catalogue      HW-E05-F01-T01
- *   BS calendar              HW-E03-F01 follow-up
- *   issue categories         HW-E11-F01-T01
- *   fixture tenants          HW-E29-F02-T01
- */
-final class DatabaseSeeder extends Seeder
+class DatabaseSeeder extends Seeder
 {
+    use WithoutModelEvents;
+
+    /**
+     * Seed the application's database.
+     */
     public function run(): void
     {
-        $this->call([
-            SourceTypeSeeder::class,
+        // User::factory(10)->create();
+
+        User::factory()->create([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
         ]);
     }
 }
