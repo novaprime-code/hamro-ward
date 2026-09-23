@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 use App\Modules\Tenancy\Actions\CreateTenantDatabase;
-use App\Modules\Tenancy\Actions\DropTenantDatabase;
-use App\Modules\Tenancy\Actions\MigrateTenant;
 use App\Modules\Tenancy\Enums\TenantStatus;
 use App\Modules\Tenancy\Exceptions\TenancyException;
 use App\Modules\Tenancy\Models\Tenant;
@@ -22,25 +20,6 @@ use Tests\Fixtures\WriteTenantProbeJob;
 */
 
 uses(RefreshDatabase::class);
-
-/**
- * Creates and migrates a throwaway tenant database, runs the test, drops it.
- *
- * @param  Closure(Tenant): void  $test
- */
-function withTenantDatabase(Closure $test): void
-{
-    $tenant = Tenant::factory()->create();
-
-    try {
-        app(CreateTenantDatabase::class)->handle($tenant);
-        app(MigrateTenant::class)->handle($tenant);
-
-        $test($tenant->refresh());
-    } finally {
-        app(DropTenantDatabase::class)->handle($tenant);
-    }
-}
 
 it('creates, migrates and records the schema version of a tenant database', function (): void {
     withTenantDatabase(function (Tenant $tenant): void {

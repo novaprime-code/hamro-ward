@@ -7,6 +7,7 @@ namespace App\Modules\Geography\Models;
 use App\Modules\Geography\Casts\PostgresUuidArray;
 use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Enums\LocalLevelType;
+use App\Modules\Provenance\Models\Concerns\HasSourceLinks;
 use App\Modules\Tenancy\Models\Concerns\UsesCentralConnection;
 use Database\Factories\AdminUnitFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -47,6 +48,8 @@ final class AdminUnit extends Model
 {
     /** @use HasFactory<AdminUnitFactory> */
     use HasFactory;
+
+    use HasSourceLinks;
 
     use HasUuids;
     use UsesCentralConnection;

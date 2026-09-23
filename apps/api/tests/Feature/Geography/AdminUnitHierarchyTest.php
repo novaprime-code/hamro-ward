@@ -5,21 +5,9 @@ declare(strict_types=1);
 use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Enums\LocalLevelType;
 use App\Modules\Geography\Models\AdminUnit;
-use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
-
-/**
- * Runs a statement the database must reject. The savepoint keeps the test's
- * outer transaction usable after the error (PostgreSQL aborts it otherwise).
- */
-function expectRejectedByDatabase(Closure $statement): void
-{
-    expect(fn () => DB::connection('central')->transaction($statement))
-        ->toThrow(QueryException::class);
-}
 
 it('builds a full chain and records ancestors root-first', function (): void {
     $ward = AdminUnit::factory()->ward()->create()->refresh();
