@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 /*
 |--------------------------------------------------------------------------
-| Tenancy (D-010, D-013, docs/12)
+| Tenancy (D-010, D-013, D-014, docs/12)
 |--------------------------------------------------------------------------
-| One PostgreSQL database per onboarded local level, plus the central database.
+| One PostgreSQL database per onboarded local level, plus the central database,
+| on a shared PostgreSQL server that also hosts other applications.
 | Connection names refer to config/database.php.
 */
 
@@ -25,21 +26,33 @@ return [
     'provisioner_connection' => 'provisioner',
 
     // Tenant databases are named <prefix><8 random hex chars>, e.g. hw_t_5f3a9c1e.
+    // The prefix also keeps them apart from other applications on the shared server.
     'database_prefix' => env('TENANT_DB_PREFIX', 'hw_t_'),
+
+    /*
+    | Every tenant database is copied from this template, which already carries
+    | PostGIS, pg_trgm, btree_gist, citext and the default privileges for the
+    | application role. Because the template is marked datistemplate, a plain
+    | CREATEDB role can copy it — no superuser rights, and template1 stays
+    | untouched for the other applications on the server (D-014).
+    |
+    | Set to an empty string to fall back to creating extensions per database,
+    | which then requires a superuser.
+    */
+    'template_database' => env('TENANT_DB_TEMPLATE', 'template_hamroward'),
 
     // Relative to the application base path.
     'migrations_path' => 'database/migrations/tenant',
 
     // PostgreSQL roles granted on every new tenant database (docs/12 §7).
-    // Set app/backup to an empty string to skip their grants (for example in CI).
+    // Leave a role empty to skip its grants.
     'roles' => [
         'owner' => env('TENANT_DB_OWNER_ROLE', 'hw_owner'),
         'app' => env('TENANT_DB_APP_ROLE', 'hw_app'),
-        'backup' => env('TENANT_DB_BACKUP_ROLE', 'hw_backup'),
+        'backup' => env('TENANT_DB_BACKUP_ROLE', ''),
     ],
 
-    // Created if missing. Pre-installing them in template1 means a non-superuser
-    // provisioner never needs to create PostGIS itself.
+    // Created per database only when no template is configured.
     'extensions' => ['postgis', 'pg_trgm', 'btree_gist'],
 
 ];

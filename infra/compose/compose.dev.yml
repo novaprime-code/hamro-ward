@@ -1,8 +1,12 @@
 name: hamro-ward-dev
 
+# Development uses the same PostgreSQL image as the server, so the tenancy code
+# takes exactly the same path locally (template database, PostGIS, pgvector).
+# Log in once with: docker login ghcr.io
+
 services:
   db:
-    image: postgis/postgis:17-3.5
+    image: ghcr.io/novaprime-code/hamro-ward-postgres:pg17
     container_name: hw-db
     environment:
       POSTGRES_DB: hw_central
