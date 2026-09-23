@@ -1,0 +1,70 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "hamro-ward/api",
+    "type": "project",
+    "description": "Hamro Ward API — a neutral civic information platform for Nepal",
+    "keywords": ["laravel", "civic-tech", "nepal"],
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "laravel/framework": "^12.0",
+        "laravel/tinker": "^2.10"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.0",
+        "laravel/pail": "^1.2",
+        "laravel/pint": "^1.18",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.5",
+        "pestphp/pest": "^3.7",
+        "pestphp/pest-plugin-laravel": "^3.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "test": [
+            "@php artisan config:clear --ansi",
+            "@php vendor/bin/pest"
+        ],
+        "lint": [
+            "@php vendor/bin/pint --test",
+            "@php vendor/bin/phpstan analyse --no-progress --memory-limit=1G"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
