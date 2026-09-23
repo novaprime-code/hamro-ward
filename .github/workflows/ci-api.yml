@@ -3,9 +3,9 @@ name: api
 on:
   push:
     branches: [main]
-    paths: ["apps/api/**", ".github/workflows/ci-api.yml"]
+    paths: ["apps/api/**", "infra/docker/postgres/**", ".github/workflows/ci-api.yml"]
   pull_request:
-    paths: ["apps/api/**", ".github/workflows/ci-api.yml"]
+    paths: ["apps/api/**", "infra/docker/postgres/**", ".github/workflows/ci-api.yml"]
 
 concurrency:
   group: api-${{ github.ref }}
@@ -20,12 +20,12 @@ jobs:
       postgres:
         image: postgis/postgis:17-3.5
         env:
-          POSTGRES_DB: hw_central_test
+          POSTGRES_DB: hw_central
           POSTGRES_USER: hw_owner
           POSTGRES_PASSWORD: secret
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U hw_owner"
+          --health-cmd "pg_isready -U hw_owner -d hw_central"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
@@ -34,8 +34,28 @@ jobs:
       run:
         working-directory: apps/api
 
+    env:
+      DB_CONNECTION: central
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: hw_central_test
+      DB_USERNAME: hw_owner
+      DB_PASSWORD: secret
+      TENANT_DB_USERNAME: hw_owner
+      TENANT_DB_PASSWORD: secret
+      TENANT_OWNER_DB_USERNAME: hw_owner
+      TENANT_OWNER_DB_PASSWORD: secret
+      TENANT_PROVISIONER_USERNAME: hw_provisioner
+      TENANT_PROVISIONER_PASSWORD: secret
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Create database roles and test database
+        working-directory: .
+        run: |
+          PGPASSWORD=secret psql -h 127.0.0.1 -U hw_owner -d hw_central \
+            -v ON_ERROR_STOP=1 -f infra/docker/postgres/init/00-roles.sql
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -65,13 +85,6 @@ jobs:
 
       - name: Tests (Pest)
         run: ./vendor/bin/pest --colors=always
-        env:
-          DB_CONNECTION: central
-          DB_HOST: 127.0.0.1
-          DB_PORT: 5432
-          DB_DATABASE: hw_central_test
-          DB_USERNAME: hw_owner
-          DB_PASSWORD: secret
 
       - name: Dependency audit
         run: composer audit --no-interaction

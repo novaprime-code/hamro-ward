@@ -11,8 +11,8 @@ return [
     | Default connection
     |--------------------------------------------------------------------------
     | "central" holds identity, geography, persons, parties, registries and the
-    | cross-tenant indexes (docs/12 §3). Tenant models switch to the "tenant"
-    | connection, whose database name is set at runtime by the tenancy layer.
+    | cross-tenant indexes (docs/12 §3). Tenant models use the "tenant"
+    | connection, whose database is set at runtime by TenantManager.
     */
 
     'default' => env('DB_CONNECTION', 'central'),
@@ -34,17 +34,16 @@ return [
         ],
 
         /*
-        | Template for tenant databases. "database" stays null until a request or
-        | job initializes a tenant (HW-E29-F01-T02 / HW-E29-F03-T01); resolving a
-        | tenant model before that must fail loudly rather than silently read
-        | central data.
+        | Tenant data, application role (hw_app in production). "database" stays
+        | null until TenantManager initializes a tenant; tenant models refuse to
+        | resolve a connection before that (UsesTenantConnection).
         */
         'tenant' => [
             'driver' => 'pgsql',
             'host' => env('TENANT_DB_HOST', env('DB_HOST', '127.0.0.1')),
             'port' => env('TENANT_DB_PORT', env('DB_PORT', '5432')),
             'database' => null,
-            'username' => env('TENANT_DB_USERNAME', 'hw_owner'),
+            'username' => env('TENANT_DB_USERNAME', 'hw_app'),
             'password' => env('TENANT_DB_PASSWORD', ''),
             'charset' => 'utf8',
             'prefix' => '',
@@ -54,8 +53,26 @@ return [
         ],
 
         /*
-        | Used only by the CLI command that creates tenant databases. The web and
-        | worker containers must not receive these credentials in production
+        | Tenant schema owner (hw_owner). Used by tenant migrations, reference
+        | sync and grants — CLI and deploy only. Database set at runtime.
+        */
+        'tenant_owner' => [
+            'driver' => 'pgsql',
+            'host' => env('TENANT_DB_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('TENANT_DB_PORT', env('DB_PORT', '5432')),
+            'database' => null,
+            'username' => env('TENANT_OWNER_DB_USERNAME', 'hw_owner'),
+            'password' => env('TENANT_OWNER_DB_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+        ],
+
+        /*
+        | CREATEDB role for creating and dropping tenant databases. Its
+        | credentials must not be present in web containers in production
         | (docs/12 §7).
         */
         'provisioner' => [
@@ -81,16 +98,6 @@ return [
 
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Tenant database naming
-    |--------------------------------------------------------------------------
-    | hw_t_<tenant_key>, where tenant_key is derived from the local level's UUID,
-    | never from its name, so a renamed municipality needs no database rename.
-    */
-
-    'tenant_prefix' => env('TENANT_DB_PREFIX', 'hw_t_'),
-
     'migrations' => [
         'table' => 'migrations',
         'update_date_on_publish' => true,
@@ -100,7 +107,7 @@ return [
         'client' => env('REDIS_CLIENT', 'phpredis'),
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
-            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'hamro-ward'), '_').'_database_'),
+            'prefix' => env('REDIS_PREFIX', Str::slug((string) env('APP_NAME', 'hamro-ward'), '_').'_database_'),
         ],
         'default' => [
             'url' => env('REDIS_URL'),
