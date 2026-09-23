@@ -3,13 +3,28 @@ name: web
 on:
   push:
     branches: [main]
-    paths: ["apps/web/**", "packages/**", ".github/workflows/ci-web.yml"]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/ci-web.yml"
   pull_request:
-    paths: ["apps/web/**", "packages/**", ".github/workflows/ci-web.yml"]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/ci-web.yml"
 
 concurrency:
   group: web-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -19,9 +34,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No "version" here on purpose: it comes from "packageManager" in
+      # package.json, so CI, Docker and your machine all agree on one version.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
