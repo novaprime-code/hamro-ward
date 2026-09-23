@@ -11,6 +11,11 @@ concurrency:
   group: api-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  # Needed to pull the private PostgreSQL image used as a service container
+  packages: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -18,7 +23,12 @@ jobs:
 
     services:
       postgres:
-        image: postgis/postgis:17-3.5
+        # Same image as development and the server, so PostGIS and the template
+        # database behave identically everywhere (D-014)
+        image: ghcr.io/novaprime-code/hamro-ward-postgres:pg17
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
         env:
           POSTGRES_DB: hw_central
           POSTGRES_USER: hw_owner
@@ -41,17 +51,20 @@ jobs:
       DB_DATABASE: hw_central_test
       DB_USERNAME: hw_owner
       DB_PASSWORD: secret
+      TENANT_DB_TEMPLATE: template_hamroward
       TENANT_DB_USERNAME: hw_owner
       TENANT_DB_PASSWORD: secret
       TENANT_OWNER_DB_USERNAME: hw_owner
       TENANT_OWNER_DB_PASSWORD: secret
       TENANT_PROVISIONER_USERNAME: hw_provisioner
       TENANT_PROVISIONER_PASSWORD: secret
+      TENANT_DB_APP_ROLE: hw_app
+      TENANT_DB_BACKUP_ROLE: ""
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Create database roles and test database
+      - name: Create roles, the test database and the template
         working-directory: .
         run: |
           PGPASSWORD=secret psql -h 127.0.0.1 -U hw_owner -d hw_central \
@@ -59,7 +72,7 @@ jobs:
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3"
+          php-version: "8.4"
           extensions: pdo_pgsql, mbstring, intl, gd, bcmath
           coverage: none
           tools: composer:v2

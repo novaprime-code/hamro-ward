@@ -14,11 +14,16 @@ use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
- * Creates the PostgreSQL database for a tenant and grants the application
- * and backup roles (docs/12 §5, §7). CLI only: the provisioner connection's
- * credentials are not available to web containers in production.
+ * Creates the PostgreSQL database for a tenant and grants the application role
+ * (docs/12 §5, §7, D-014).
  *
- * Used by hw:tenant:create (HW-E29-F02-T01) and tests.
+ * The database is copied from the template (`tenancy.template_database`), which
+ * already has the extensions and default privileges, so the provisioner role
+ * needs nothing beyond CREATEDB. Public access is revoked immediately: the
+ * server is shared with other applications.
+ *
+ * CLI only — the provisioner connection's credentials are not present in the
+ * web containers in production.
  */
 final readonly class CreateTenantDatabase
 {
@@ -43,12 +48,15 @@ final readonly class CreateTenantDatabase
         // CREATE DATABASE cannot run inside a transaction; the provisioner
         // connection is never used transactionally.
         $provisioner->statement(sprintf(
-            'CREATE DATABASE %s OWNER %s TEMPLATE template1',
+            'CREATE DATABASE %s OWNER %s TEMPLATE %s',
             Pg::ident($name),
             Pg::ident((string) config('tenancy.roles.owner')),
+            Pg::ident($this->templateDatabase()),
         ));
 
         try {
+            $provisioner->statement('REVOKE ALL ON DATABASE '.Pg::ident($name).' FROM PUBLIC');
+
             $this->tenancy->run(
                 $tenant,
                 fn () => $this->prepare(
@@ -67,15 +75,20 @@ final readonly class CreateTenantDatabase
 
     private function prepare(Connection $db, string $name): void
     {
-        /** @var list<string> $extensions */
-        $extensions = (array) config('tenancy.extensions', []);
+        // Only when no template is configured; the template already has them.
+        if ($this->templateDatabase() === 'template1') {
+            /** @var list<string> $extensions */
+            $extensions = (array) config('tenancy.extensions', []);
 
-        foreach ($extensions as $extension) {
-            $db->statement('CREATE EXTENSION IF NOT EXISTS '.Pg::ident($extension));
+            foreach ($extensions as $extension) {
+                $db->statement('CREATE EXTENSION IF NOT EXISTS '.Pg::ident($extension));
+            }
         }
 
         $database = Pg::ident($name);
 
+        // Database-level grants are not copied from the template, so they are
+        // always applied here.
         $app = (string) config('tenancy.roles.app');
 
         if ($app !== '') {
@@ -94,5 +107,12 @@ final readonly class CreateTenantDatabase
             $db->statement("GRANT USAGE ON SCHEMA public TO {$role}");
             $db->statement("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO {$role}");
         }
+    }
+
+    private function templateDatabase(): string
+    {
+        $template = trim((string) config('tenancy.template_database'));
+
+        return $template === '' ? 'template1' : $template;
     }
 }
