@@ -13,6 +13,10 @@ return [
     | "central" holds identity, geography, persons, parties, registries and the
     | cross-tenant indexes (docs/12 §3). Tenant models use the "tenant"
     | connection, whose database is set at runtime by TenantManager.
+    |
+    | Requests use the application role (hw_app). Migrations use the schema owner
+    | (hw_owner) through the *_owner connections, so a compromised request path
+    | cannot change the schema or touch append-only tables (D-014).
     */
 
     'default' => env('DB_CONNECTION', 'central'),
@@ -24,7 +28,7 @@ return [
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '5432'),
             'database' => env('DB_DATABASE', 'hw_central'),
-            'username' => env('DB_USERNAME', 'hw_owner'),
+            'username' => env('DB_USERNAME', 'hw_app'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => 'utf8',
             'prefix' => '',
@@ -34,9 +38,28 @@ return [
         ],
 
         /*
-        | Tenant data, application role (hw_app in production). "database" stays
-        | null until TenantManager initializes a tenant; tenant models refuse to
-        | resolve a connection before that (UsesTenantConnection).
+        | Same database, schema owner. Used by central migrations at container
+        | start (docker/entrypoint.d/90-hamroward-migrations.sh) and by CLI
+        | maintenance — never by request handling.
+        */
+        'central_owner' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'hw_central'),
+            'username' => env('DB_OWNER_USERNAME', env('DB_USERNAME', 'hw_owner')),
+            'password' => env('DB_OWNER_PASSWORD', env('DB_PASSWORD', '')),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+        ],
+
+        /*
+        | Tenant data, application role. "database" stays null until
+        | TenantManager initializes a tenant; tenant models refuse to resolve a
+        | connection before that (UsesTenantConnection).
         */
         'tenant' => [
             'driver' => 'pgsql',
@@ -53,8 +76,7 @@ return [
         ],
 
         /*
-        | Tenant schema owner (hw_owner). Used by tenant migrations, reference
-        | sync and grants — CLI and deploy only. Database set at runtime.
+        | Tenant schema owner. Tenant migrations, reference sync and grants.
         */
         'tenant_owner' => [
             'driver' => 'pgsql',
@@ -71,15 +93,16 @@ return [
         ],
 
         /*
-        | CREATEDB role for creating and dropping tenant databases. Its
-        | credentials must not be present in web containers in production
+        | CREATEDB role for creating and dropping municipality databases.
+        | Deliberately absent from the running stack's environment: tenant
+        | provisioning is a one-off command with the password passed in
         | (docs/12 §7).
         */
         'provisioner' => [
             'driver' => 'pgsql',
             'host' => env('TENANT_DB_HOST', env('DB_HOST', '127.0.0.1')),
             'port' => env('TENANT_DB_PORT', env('DB_PORT', '5432')),
-            'database' => 'postgres',
+            'database' => env('TENANT_PROVISIONER_DATABASE', 'postgres'),
             'username' => env('TENANT_PROVISIONER_USERNAME', 'hw_provisioner'),
             'password' => env('TENANT_PROVISIONER_PASSWORD', ''),
             'charset' => 'utf8',
