@@ -7,16 +7,18 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 
 /**
- * Central seeders are added module by module:
+ * Central reference data. Module seeders are added as they arrive:
  *   positions catalogue      HW-E05-F01-T01
- *   source types             HW-E04-F01-T01
- *   BS calendar              HW-E03-F01-T01 follow-up
- *   fixture tenants          HW-E29-F02-T01 (Namuna Nagarpalika, Udaharan Gaunpalika)
+ *   BS calendar              HW-E03-F01 follow-up
+ *   issue categories         HW-E11-F01-T01
+ *   fixture tenants          HW-E29-F02-T01
  */
 final class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        //
+        $this->call([
+            SourceTypeSeeder::class,
+        ]);
     }
 }
