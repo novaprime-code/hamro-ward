@@ -1,0 +1,34 @@
+# Version control and CI
+.git
+.github
+
+# Secrets: the stack provides environment variables at runtime
+.env
+.env.*
+!.env.example
+
+# Installed inside the image instead
+vendor
+node_modules
+
+# Not needed in production
+tests
+phpunit.xml
+phpstan.neon
+pint.json
+.phpunit.result.cache
+.phpstan.cache
+.idea
+.vscode
+docker-compose*.yml
+compose*.yml
+Dockerfile
+.dockerignore
+
+# Runtime files: keep the folders, drop their contents
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/app/public/*
+bootstrap/cache/*.php
