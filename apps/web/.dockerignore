@@ -1,0 +1,21 @@
+# Version control and CI
+.git
+.github
+
+# Installed and built inside the image instead
+node_modules
+.next
+out
+coverage
+
+# Local secrets
+.env
+.env*.local
+
+# Not needed in the image
+npm-debug.log*
+.vercel
+.idea
+.vscode
+Dockerfile
+.dockerignore
