@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Tenancy\Providers;
 
+use App\Modules\Tenancy\Console\CreateTenantCommand;
+use App\Modules\Tenancy\Console\DoctorCommand;
+use App\Modules\Tenancy\Console\ListTenantsCommand;
 use App\Modules\Tenancy\Console\MigrateTenantsCommand;
+use App\Modules\Tenancy\Console\SetTenantStatusCommand;
 use App\Modules\Tenancy\Queue\JobTenancy;
 use App\Modules\Tenancy\TenantManager;
 use Illuminate\Queue\Events\JobExceptionOccurred;
@@ -30,7 +34,11 @@ final class TenancyServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                CreateTenantCommand::class,
+                DoctorCommand::class,
+                ListTenantsCommand::class,
                 MigrateTenantsCommand::class,
+                SetTenantStatusCommand::class,
             ]);
         }
 
