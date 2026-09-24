@@ -29,6 +29,9 @@ use Throwable;
  * With --deep it also onboards a throwaway municipality, sends a job through the
  * real queue to prove the worker container picks it up in the right database,
  * then removes it again. Run it after every deploy.
+ *
+ * Note: the result helpers are named reportPass/reportFail/reportWarning, not
+ * pass/fail — Illuminate\Console\Command already defines a public fail().
  */
 final class DoctorCommand extends Command
 {
@@ -74,18 +77,18 @@ final class DoctorCommand extends Command
         return self::SUCCESS;
     }
 
-    private function pass(string $label, string $detail = 'ok'): void
+    private function reportPass(string $label, string $detail = 'ok'): void
     {
         $this->components->twoColumnDetail($label, "<fg=green>{$detail}</>");
     }
 
-    private function fail(string $label, string $detail): void
+    private function reportFail(string $label, string $detail): void
     {
         $this->failures++;
         $this->components->twoColumnDetail($label, "<fg=red>{$detail}</>");
     }
 
-    private function warn_(string $label, string $detail): void
+    private function reportWarning(string $label, string $detail): void
     {
         $this->components->twoColumnDetail($label, "<fg=yellow>{$detail}</>");
     }
@@ -96,20 +99,22 @@ final class DoctorCommand extends Command
         $debug = (bool) config('app.debug');
         $key = (string) config('app.key');
 
-        $key === '' ? $this->fail('application key', 'missing') : $this->pass('application key', 'set');
+        $key === ''
+            ? $this->reportFail('application key', 'missing')
+            : $this->reportPass('application key', 'set');
 
         $environment === 'production'
-            ? $this->pass('environment', $environment)
-            : $this->warn_('environment', $environment);
+            ? $this->reportPass('environment', $environment)
+            : $this->reportWarning('environment', $environment);
 
         $debug
-            ? $this->fail('debug mode', 'ON — never in production')
-            : $this->pass('debug mode', 'off');
+            ? $this->reportFail('debug mode', 'ON — never in production')
+            : $this->reportPass('debug mode', 'off');
 
         $url = (string) config('app.url');
         str_starts_with($url, 'https://')
-            ? $this->pass('app url', $url)
-            : $this->warn_('app url', $url.' (not https)');
+            ? $this->reportPass('app url', $url)
+            : $this->reportWarning('app url', $url.' (not https)');
     }
 
     private function checkCentralDatabase(): void
@@ -121,9 +126,9 @@ final class DoctorCommand extends Command
             $role = (string) $connection->selectOne('select current_user as role')->role;
             $database = (string) $connection->selectOne('select current_database() as name')->name;
 
-            $this->pass('central database', "{$database} as {$role}");
+            $this->reportPass('central database', "{$database} as {$role}");
         } catch (Throwable $e) {
-            $this->fail('central database', $e->getMessage());
+            $this->reportFail('central database', $e->getMessage());
         }
     }
 
@@ -133,11 +138,11 @@ final class DoctorCommand extends Command
             $connection = DB::connection('central_owner');
             $role = (string) $connection->selectOne('select current_user as role')->role;
 
-            $pending = $connection->table('migrations')->count();
+            $applied = $connection->table('migrations')->count();
 
-            $this->pass('schema owner', "{$role}, {$pending} migrations applied");
+            $this->reportPass('schema owner', "{$role}, {$applied} migrations applied");
         } catch (Throwable $e) {
-            $this->fail('schema owner', $e->getMessage());
+            $this->reportFail('schema owner', $e->getMessage());
         }
     }
 
@@ -146,7 +151,7 @@ final class DoctorCommand extends Command
         $template = (string) config('tenancy.template_database');
 
         if ($template === '') {
-            $this->warn_('template database', 'not configured — extensions are created per database');
+            $this->reportWarning('template database', 'not configured — extensions are created per database');
 
             return;
         }
@@ -158,16 +163,16 @@ final class DoctorCommand extends Command
             );
 
             if ($row === null) {
-                $this->fail('template database', "{$template} does not exist");
+                $this->reportFail('template database', "{$template} does not exist");
 
                 return;
             }
 
             ((bool) $row->datistemplate)
-                ? $this->pass('template database', $template)
-                : $this->fail('template database', "{$template} is not marked as a template");
+                ? $this->reportPass('template database', $template)
+                : $this->reportFail('template database', "{$template} is not marked as a template");
         } catch (Throwable $e) {
-            $this->fail('template database', $e->getMessage());
+            $this->reportFail('template database', $e->getMessage());
         }
     }
 
@@ -178,19 +183,23 @@ final class DoctorCommand extends Command
             Cache::put('hw:doctor', $token, 60);
 
             Cache::get('hw:doctor') === $token
-                ? $this->pass('cache', (string) config('cache.default'))
-                : $this->fail('cache', 'value did not come back');
+                ? $this->reportPass('cache', (string) config('cache.default'))
+                : $this->reportFail('cache', 'value did not come back');
         } catch (Throwable $e) {
-            $this->fail('cache', $e->getMessage());
+            $this->reportFail('cache', $e->getMessage());
         }
 
-        $this->pass('queue connection', (string) config('queue.default'));
+        $this->reportPass('queue connection', (string) config('queue.default'));
 
-        $sourceTypes = SourceType::query()->count();
+        try {
+            $sourceTypes = SourceType::query()->count();
 
-        $sourceTypes > 0
-            ? $this->pass('reference data', "{$sourceTypes} source types")
-            : $this->fail('reference data', 'no source types — run php artisan db:seed');
+            $sourceTypes > 0
+                ? $this->reportPass('reference data', "{$sourceTypes} source types")
+                : $this->reportFail('reference data', 'no source types — run php artisan db:seed');
+        } catch (Throwable $e) {
+            $this->reportFail('reference data', $e->getMessage());
+        }
     }
 
     private function checkStorage(): void
@@ -202,20 +211,27 @@ final class DoctorCommand extends Command
             Storage::delete($path);
 
             $readable
-                ? $this->pass('storage', (string) config('filesystems.default'))
-                : $this->fail('storage', 'wrote but could not read back');
+                ? $this->reportPass('storage', (string) config('filesystems.default'))
+                : $this->reportFail('storage', 'wrote but could not read back');
         } catch (Throwable $e) {
-            $this->fail('storage', $e->getMessage());
+            $this->reportFail('storage', $e->getMessage());
         }
     }
 
     private function checkTenants(): void
     {
         $expected = TenantSchema::expectedVersion();
-        $tenants = Tenant::query()->get();
+
+        try {
+            $tenants = Tenant::query()->get();
+        } catch (Throwable $e) {
+            $this->reportFail('municipalities', $e->getMessage());
+
+            return;
+        }
 
         if ($tenants->isEmpty()) {
-            $this->warn_('municipalities', 'none onboarded yet');
+            $this->reportWarning('municipalities', 'none onboarded yet');
 
             return;
         }
@@ -224,12 +240,12 @@ final class DoctorCommand extends Command
         $blocked = $tenants->filter(fn (Tenant $tenant): bool => $tenant->status === TenantStatus::Maintenance);
 
         $behind->isEmpty()
-            ? $this->pass('municipality schemas', "{$tenants->count()} at {$expected}")
-            : $this->fail('municipality schemas', $behind->pluck('tenant_key')->implode(', ').' behind — run hw:tenant:migrate');
+            ? $this->reportPass('municipality schemas', "{$tenants->count()} at {$expected}")
+            : $this->reportFail('municipality schemas', $behind->pluck('tenant_key')->implode(', ').' behind — run hw:tenant:migrate');
 
         $blocked->isEmpty()
-            ? $this->pass('municipality status', 'none in maintenance')
-            : $this->fail('municipality status', $blocked->pluck('tenant_key')->implode(', ').' in maintenance');
+            ? $this->reportPass('municipality status', 'none in maintenance')
+            : $this->reportFail('municipality status', $blocked->pluck('tenant_key')->implode(', ').' in maintenance');
     }
 
     private function runDeepCheck(): void
@@ -244,7 +260,7 @@ final class DoctorCommand extends Command
         }
 
         if ($password === '') {
-            $this->fail('provisioning', 'no provisioner password');
+            $this->reportFail('provisioning', 'no provisioner password');
 
             return;
         }
@@ -261,26 +277,26 @@ final class DoctorCommand extends Command
 
         try {
             app(CreateTenantDatabase::class)->handle($tenant);
-            $this->pass('provisioning', $tenant->database_name);
+            $this->reportPass('provisioning', $tenant->database_name);
 
             app(MigrateTenant::class)->handle($tenant);
-            $this->pass('migrations', (string) $tenant->refresh()->schema_version);
+            $this->reportPass('migrations', (string) $tenant->refresh()->schema_version);
 
             app(SyncTenantReferenceData::class)->handle($tenant);
-            $this->pass('reference sync', 'version '.$tenant->refresh()->reference_version);
+            $this->reportPass('reference sync', 'version '.$tenant->refresh()->reference_version);
 
             $this->checkExtensions($tenant);
             $this->checkQueueRoundTrip($tenant);
         } catch (Throwable $e) {
             report($e);
-            $this->fail('deep check', $e->getMessage());
+            $this->reportFail('deep check', $e->getMessage());
         } finally {
             try {
                 app(DropTenantDatabase::class)->force($tenant);
                 $tenant->delete();
-                $this->pass('cleanup', 'throwaway database dropped');
+                $this->reportPass('cleanup', 'throwaway database dropped');
             } catch (Throwable $e) {
-                $this->fail('cleanup', 'could not drop '.$tenant->database_name.': '.$e->getMessage());
+                $this->reportFail('cleanup', 'could not drop '.$tenant->database_name.': '.$e->getMessage());
             }
         }
     }
@@ -295,8 +311,8 @@ final class DoctorCommand extends Command
         $missing = array_diff(['postgis', 'pg_trgm', 'btree_gist'], $extensions);
 
         $missing === []
-            ? $this->pass('extensions', 'postgis, pg_trgm, btree_gist')
-            : $this->fail('extensions', 'missing: '.implode(', ', $missing));
+            ? $this->reportPass('extensions', 'postgis, pg_trgm, btree_gist')
+            : $this->reportFail('extensions', 'missing: '.implode(', ', $missing));
     }
 
     private function checkQueueRoundTrip(Tenant $tenant): void
@@ -317,7 +333,7 @@ final class DoctorCommand extends Command
             );
 
             if (is_array($stored) && ($stored['token'] ?? null) === $token) {
-                $this->pass('queue round trip', 'worker wrote into '.$tenant->database_name);
+                $this->reportPass('queue round trip', 'worker wrote into '.$tenant->database_name);
 
                 return;
             }
@@ -325,6 +341,6 @@ final class DoctorCommand extends Command
             sleep(1);
         }
 
-        $this->fail('queue round trip', "no result within {$timeout}s — is hamroward-queue running?");
+        $this->reportFail('queue round trip', "no result within {$timeout}s — is hamroward-queue running?");
     }
 }
