@@ -19,6 +19,11 @@ use Illuminate\Support\Facades\Schema;
 |    children cannot be closed
 |  - ancestor_ids (root-first) maintained by the trigger, used by the
 |    publication rule and tenant subtree replication
+|
+| The self-referencing foreign key is added after the table exists: Laravel
+| appends fluent index commands (uuid('id')->primary()) after the other
+| commands, so declaring the key inside Schema::create would run the ALTER
+| before the primary key it points at.
 */
 return new class extends Migration
 {
@@ -39,9 +44,12 @@ return new class extends Migration
             $table->date('valid_to')->nullable();
             $table->timestampsTz();
 
-            $table->foreign('parent_id')->references('id')->on('admin_units')->restrictOnDelete();
             $table->index('parent_id');
             $table->index(['level', 'is_published']);
+        });
+
+        Schema::table('admin_units', function (Blueprint $table): void {
+            $table->foreign('parent_id')->references('id')->on('admin_units')->restrictOnDelete();
         });
 
         DB::statement(<<<'SQL'
