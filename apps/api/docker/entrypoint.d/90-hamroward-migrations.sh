@@ -38,7 +38,30 @@ fi
 cd /var/www/html
 
 echo "[hamroward] central migrations"
-php artisan migrate --force --database=central_owner --path=database/migrations/central
+
+# The first failure a new environment hits is the central database not being
+# there — a stack gets its own DB_DATABASE, and PostgreSQL only creates a
+# database when something asks it to. Laravel reports that as a connection
+# failure under eighty lines of stack trace, which reads like a networking
+# problem and is not one. So the failure is caught here and the cause is
+# printed after the trace, where it is the last thing on the screen.
+if ! php artisan migrate --force --database=central_owner --path=database/migrations/central; then
+    echo
+    echo "[hamroward] ---------------------------------------------------------------"
+    echo "[hamroward] Central migrations failed against database '${DB_DATABASE:-?}'"
+    echo "[hamroward] on host '${DB_HOST:-?}' as the owner role."
+    echo "[hamroward]"
+    echo "[hamroward] If the error above says the database DOES NOT EXIST, it has to be"
+    echo "[hamroward] created once on the PostgreSQL server — the stack cannot make it:"
+    echo "[hamroward]"
+    echo "[hamroward]     ~/scripts/create-central-database.sh ${DB_DATABASE:-<name>}"
+    echo "[hamroward]"
+    echo "[hamroward] If it says authentication failed, DB_OWNER_USERNAME/PASSWORD are"
+    echo "[hamroward] wrong. If it says no such host, the container is not on the 'db'"
+    echo "[hamroward] network. The container will now restart and try again."
+    echo "[hamroward] ---------------------------------------------------------------"
+    exit 1
+fi
 
 # A tenant failure must not stop the boot: one municipality going into
 # maintenance is not a reason to take the other 752 offline. The failure is
