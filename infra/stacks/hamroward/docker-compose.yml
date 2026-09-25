@@ -1,12 +1,28 @@
-name: hamroward
+name: ${HW_STACK:-hamroward}
 
-# Hamro Ward: one API image in three roles (web, queue, scheduler), its own Redis,
+# Hamro Ward: one API image in three roles (app, queue, scheduler), its own Redis,
 # and the Next.js server that also serves the staff dashboard on the admin host.
 #
 # The database is the shared PostgreSQL in ~/stacks/postgres (central database
-# "hamroward" plus one hw_t_* database per municipality), reached over the "db"
-# network. Only "app" and "web" join the public-facing "web" network, and nothing
+# plus one hw_t_* database per municipality), reached over the "db" network.
+# Only "app" and "web" join the public-facing "web" network, and nothing
 # publishes a port: the proxy forwards to the container names.
+#
+# ---------------------------------------------------------------------------
+# One file, two environments (D-015).
+#
+# Everything host-global is prefixed with HW_STACK, so a staging and a
+# production stack can sit on the same machine without colliding on container
+# names, volume names or the Compose project name. Set HW_STACK per stack:
+#
+#   staging      HW_STACK=hamroward-staging   HAMROWARD_*_IMAGE=...:staging
+#   production   HW_STACK=hamroward-prod      HAMROWARD_*_IMAGE=...:production
+#
+# Internal routing deliberately uses Compose SERVICE names (app, redis), which
+# are scoped to this stack's own backend network, rather than container names,
+# which are global to the Docker host. That is what lets the same web image
+# work in both stacks.
+# ---------------------------------------------------------------------------
 #
 # The provisioner role's password is deliberately NOT in this stack's
 # environment; creating a municipality is a one-off command (see PHASE-4.md).
@@ -25,7 +41,7 @@ x-api: &api
 services:
   app:
     <<: *api
-    container_name: hamroward-app
+    container_name: ${HW_STACK:-hamroward}-app
     environment:
       # Startup automation from the base image, plus our migrations hook.
       # The base image's own migration step is off: central migrations run as the
@@ -34,6 +50,11 @@ services:
       AUTORUN_LARAVEL_MIGRATION: "false"
       HEALTHCHECK_PATH: "/up"
       PHP_OPCACHE_ENABLE: "1"
+      # Staging migrates itself on boot, which is where a broken migration
+      # should be discovered. Production does not: a failing migration under
+      # `set -e` kills the container, Docker restarts it, and the site is down
+      # in a loop. Run migrations there as a deliberate step (APPLY §4).
+      HW_MIGRATE_ON_BOOT: ${HW_MIGRATE_ON_BOOT:-false}
     depends_on:
       redis:
         condition: service_healthy
@@ -44,7 +65,7 @@ services:
 
   queue:
     <<: *api
-    container_name: hamroward-queue
+    container_name: ${HW_STACK:-hamroward}-queue
     command: ["php", "/var/www/html/artisan", "queue:work", "--tries=3", "--max-time=3600"]
     stop_signal: SIGTERM
     environment:
@@ -59,7 +80,7 @@ services:
 
   scheduler:
     <<: *api
-    container_name: hamroward-scheduler
+    container_name: ${HW_STACK:-hamroward}-scheduler
     command: ["php", "/var/www/html/artisan", "schedule:work"]
     stop_signal: SIGTERM
     environment:
@@ -74,7 +95,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: hamroward-redis
+    container_name: ${HW_STACK:-hamroward}-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -89,25 +110,29 @@ services:
 
   web:
     image: ${HAMROWARD_WEB_IMAGE}
-    container_name: hamroward-web
+    container_name: ${HW_STACK:-hamroward}-web
     restart: unless-stopped
     env_file:
       - .env
     depends_on:
       app:
         condition: service_started
+    # Also on backend, so the baked rewrite target http://app:8080 resolves on
+    # a network private to this stack. Resolving it on the shared "web" network
+    # would be ambiguous the moment a second stack joined with its own "app".
     networks:
+      - backend
       - web
 
 volumes:
   hamroward_storage:
-    name: hamroward_storage
+    name: ${HW_STACK:-hamroward}_storage
   hamroward_redis:
-    name: hamroward_redis
+    name: ${HW_STACK:-hamroward}_redis
 
 networks:
   backend:
-    name: hamroward_backend
+    name: ${HW_STACK:-hamroward}_backend
   db:
     external: true
   web:

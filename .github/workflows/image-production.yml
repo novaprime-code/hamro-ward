@@ -1,0 +1,141 @@
+name: Production images
+
+# Push to `main` → production.
+#
+# The important part is what this workflow does NOT do. If the commit already
+# has an image — because it was built on `staging` and `main` was
+# fast-forwarded to it — production gets that exact image, re-tagged. No
+# rebuild. The bytes that were tested are the bytes that ship.
+#
+# If the commit has no image (a direct push to main, or a merge commit that
+# created a new sha), it builds one and says so in the job summary, because
+# that image has never run anywhere.
+#
+#   git checkout main
+#   git merge --ff-only staging      ← same sha, promotion, no rebuild
+#   git push
+#
+# A non-fast-forward merge still works; it just costs a build and gives up the
+# guarantee (docs/DECISIONS D-015).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'design-v2/**'
+      - '**.md'
+  workflow_dispatch:
+
+concurrency:
+  group: images-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  release:
+    name: Release ${{ matrix.app }}
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      built: ${{ steps.resolve.outputs.built }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: api
+            context: .
+            dockerfile: apps/api/Dockerfile
+          - app: web
+            context: .
+            dockerfile: apps/web/Dockerfile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Is this commit already built?
+        id: resolve
+        run: |
+          image="${REGISTRY}/${{ github.repository }}/${{ matrix.app }}"
+          if docker buildx imagetools inspect "${image}:sha-${{ github.sha }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "built=false" >> "$GITHUB_OUTPUT"
+            echo "Found ${image}:sha-${{ github.sha }} — promoting it without rebuilding."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "built=true" >> "$GITHUB_OUTPUT"
+            echo "No image for this commit — it will be built now."
+          fi
+
+      # Re-tagging copies the manifest inside the registry. Nothing is pulled,
+      # nothing is rebuilt, and the digest is unchanged — which is the whole
+      # point: production runs the artifact staging ran.
+      - name: Promote the existing image
+        if: steps.resolve.outputs.exists == 'true'
+        run: |
+          image="${REGISTRY}/${{ github.repository }}/${{ matrix.app }}"
+          docker buildx imagetools create \
+            --tag "${image}:production" \
+            --tag "${image}:latest" \
+            "${image}:sha-${{ github.sha }}"
+
+      - name: Build, because this commit has no image
+        if: steps.resolve.outputs.exists == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}:production
+            ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}:latest
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,scope=${{ matrix.app }},mode=max
+          provenance: false
+
+      - name: Record what happened
+        run: |
+          if [ "${{ steps.resolve.outputs.exists }}" = "true" ]; then
+            echo "- **${{ matrix.app }}**: promoted \`sha-${{ github.sha }}\` — the image staging ran." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- **${{ matrix.app }}**: :warning: built fresh. This image has not run on staging." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    name: Redeploy production
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the Portainer stack webhook
+        env:
+          WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK_PRODUCTION }}
+        run: |
+          if [ -z "${WEBHOOK}" ]; then
+            {
+              echo
+              echo '### Production not deployed'
+              echo
+              echo 'Images are tagged `:production` in the registry, but'
+              echo '`PORTAINER_WEBHOOK_PRODUCTION` is not set, so no server was told.'
+              echo 'That is expected until the production host exists.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          code=$(curl -sS -o /tmp/out -w '%{http_code}' -X POST "${WEBHOOK}")
+          echo "Portainer responded ${code}"
+          cat /tmp/out || true
+          [ "${code}" -ge 200 ] && [ "${code}" -lt 300 ]

@@ -2,24 +2,28 @@ import type { Metadata } from 'next';
 import { Anek_Devanagari, Noto_Sans_Devanagari } from 'next/font/google';
 import { notFound } from 'next/navigation';
 
-import { BetaBanner } from '@/components/beta-banner';
-import { SiteFooter } from '@/components/site-footer';
-import { SiteHeader } from '@/components/site-header';
+import { BetaBanner } from '@/components/layout/beta-banner';
+import { SiteFooter } from '@/components/layout/site-footer';
+import { SiteHeader } from '@/components/layout/site-header';
 import { isLocale } from '@/i18n/config';
 import { getMessages, translator } from '@/i18n/messages';
+import { siteUrl } from '@/lib/site';
+import { resolveTheme } from '@/lib/theme';
 
 import './globals.css';
 
+/* Self-hosted through next/font: no request to Google at runtime, and the
+   Devanagari subset only. Anek has a width axis, used by the ward plate. */
 const anek = Anek_Devanagari({
   subsets: ['devanagari', 'latin'],
-  weight: ['600', '700'],
+  weight: ['600', '700', '800'],
   variable: '--font-anek',
   display: 'swap',
 });
 
 const noto = Noto_Sans_Devanagari({
   subsets: ['devanagari', 'latin'],
-  weight: ['400', '600'],
+  weight: ['400', '500', '600'],
   variable: '--font-noto',
   display: 'swap',
 });
@@ -40,7 +44,10 @@ export async function generateMetadata({
   return {
     title: { default: t('site.name'), template: `%s · ${t('site.name')}` },
     description: t('site.tagline'),
-    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+    // Read at request time from HW_SITE_URL, not baked in as NEXT_PUBLIC_*.
+    // A hostname compiled into the bundle would make this image belong to
+    // one environment and end promotion (D-015).
+    metadataBase: siteUrl(),
     alternates: {
       canonical: `/${locale}`,
       languages: { ne: '/ne', en: '/en', 'x-default': '/ne' },
@@ -64,12 +71,16 @@ export default async function LocaleLayout({
   const messages = await getMessages(locale);
   const t = translator(messages);
 
+  // Read at request time, so changing HW_THEME and restarting is enough —
+  // no rebuild, no redeploy of the image.
+  const theme = resolveTheme();
+
   return (
-    <html lang={locale} className={`${anek.variable} ${noto.variable}`}>
-      <body className="bg-paper text-ink">
+    <html lang={locale} data-theme={theme} className={`${anek.variable} ${noto.variable}`}>
+      <body className="min-h-dvh bg-bg text-ink">
         <BetaBanner message={t('beta.banner')} />
         <SiteHeader locale={locale} siteName={t('site.name')} switchLabel={t('locale.switch')} />
-        <main className="mx-auto w-full max-w-[720px] px-4 pb-16">{children}</main>
+        <main className="mx-auto w-full max-w-[var(--content-width)] px-4 pb-16">{children}</main>
         <SiteFooter
           links={[
             { href: `/${locale}/about`, label: t('footer.about') },
