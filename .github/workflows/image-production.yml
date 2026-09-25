@@ -69,8 +69,8 @@ jobs:
           # image runs in production and staging with only its stack
           # environment differing (D-015).
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}:sha-${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}:production
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/hamro-ward-${{ matrix.app }}:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/hamro-ward-${{ matrix.app }}:production
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,scope=${{ matrix.app }},mode=max
           provenance: false
@@ -82,11 +82,11 @@ jobs:
             echo
             echo 'Moving tag (what the stack references):'
             echo '```'
-            echo '${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}:production'
+            echo '${{ env.REGISTRY }}/${{ github.repository_owner }}/hamro-ward-${{ matrix.app }}:production'
             echo '```'
             echo 'Pinned to this commit (for a rollback):'
             echo '```'
-            echo '${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}:sha-${{ github.sha }}'
+            echo '${{ env.REGISTRY }}/${{ github.repository_owner }}/hamro-ward-${{ matrix.app }}:sha-${{ github.sha }}'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
