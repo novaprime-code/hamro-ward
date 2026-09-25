@@ -1,75 +1,107 @@
 @import "tailwindcss";
+@import "../../styles/tokens.css";
 
-/* Design tokens — docs/09 §3. Deliberately not red, green, saffron or blue:
-   those carry party or flag associations. Ink, slate, paper and signboard brass. */
-@theme {
-  --color-ink: #1b2430;
-  --color-slate: #4a5a6a;
-  --color-paper: #fcfcfa;
-  --color-rule: #dce1e5;
-  --color-brass: #a8842c;
-  --color-brass-ink: #6e5518;
+/* Tailwind v4 reads its theme from CSS. "inline" means the utilities resolve the
+   variable at use time, so bg-surface, text-muted and the rest follow whichever
+   palette is active — no rebuild, no duplicate class sets. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-line: var(--line);
 
-  --color-state-verified: #2f5d50;
-  --color-state-unverified: #8a6d1f;
-  --color-state-vacant: #5b6470;
-  --color-danger: #9b2c2c;
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-on-accent: var(--on-accent);
+  --color-accent-wash: var(--accent-wash);
+
+  --color-verified: var(--state-verified);
+  --color-pending: var(--state-pending);
+  --color-vacant: var(--state-vacant);
+  --color-danger: var(--danger);
 
   --font-display: var(--font-anek), system-ui, sans-serif;
   --font-sans: var(--font-noto), system-ui, sans-serif;
 
-  --radius-control: 6px;
-  --radius-sheet: 12px;
-}
-
-:root {
-  color-scheme: light;
+  --radius-control: var(--radius-control);
+  --radius-card: var(--radius-card);
+  --radius-sheet: var(--radius-sheet);
 }
 
 html {
-  background-color: var(--color-paper);
-  color: var(--color-ink);
+  background-color: var(--bg);
+  color: var(--text);
+  color-scheme: light;
+}
+
+[data-theme="raat"] {
+  color-scheme: dark;
 }
 
 body {
   font-family: var(--font-sans);
-  /* Devanagari needs room: 17px with generous leading (docs/09 §3.2, NFR-ACC-02) */
-  font-size: 17px;
-  line-height: 1.65;
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3 {
+h1, h2, h3, h4 {
   font-family: var(--font-display);
-  line-height: 1.3;
+  line-height: var(--leading-heading);
   font-weight: 650;
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-brass);
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Every interactive element clears the minimum tap target (NFR-ACC-01) */
+button, a[role="button"], input[type="submit"] {
+  min-height: var(--tap-target);
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
-/* The one bold element: a ward office signboard plate (docs/09 §1). */
+/* The ward plate: the one loud element, a painted ward-office signboard.
+   Square corners on purpose — it is a plate, not a card. */
 .ward-plate {
-  background-color: var(--color-ink);
-  color: var(--color-paper);
-  padding: 1.5rem 1rem;
-  border-radius: 0;
+  background-color: var(--plate-bg);
+  color: color-mix(in srgb, var(--plate-number) 18%, white);
+  padding: 1.15rem 1rem 1.35rem;
+  position: relative;
+}
+
+.ward-plate::after {
+  content: "";
+  position: absolute;
+  inset: 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--plate-number) 30%, transparent);
+  pointer-events: none;
 }
 
 .ward-plate__number {
-  font-family: var(--font-display);
-  font-weight: 700;
-  color: var(--color-brass);
-  font-size: clamp(72px, 22vw, 120px);
-  line-height: 1;
   display: block;
+  font-family: var(--font-display);
+  font-variation-settings: "wdth" 78;
+  font-weight: 800;
+  color: var(--plate-number);
+  font-size: clamp(64px, 19vw, 104px);
+  line-height: 0.95;
+}
+
+/* A dashed edge means "we have not confirmed this yet" — a state, not an error */
+.state-unverified {
+  border: 1px dashed var(--state-pending);
+  background-color: var(--accent-wash);
 }
