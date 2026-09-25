@@ -1,40 +1,23 @@
 import { notFound } from 'next/navigation';
 
-import { ApiStatus } from '@/components/api-status';
-import { formatNumber, isLocale } from '@/i18n/config';
+import { MunicipalityPicker } from '@/components/civic/municipality-picker';
+import { StateNotice } from '@/components/civic/state-notice';
+import { isLocale } from '@/i18n/config';
 import { getMessages, translator } from '@/i18n/messages';
+import { fetchLocalLevels } from '@/lib/api';
 
+/*
+ * Rendered on demand rather than prerendered at build.
+ *
+ * It used to export generateStaticParams, which baked the page — and with it
+ * anything read from the environment — into the image at build time. That is
+ * incompatible with one image serving several environments (D-015), and it
+ * would freeze the municipality list at whatever it was when the image was
+ * built. The fetch layer caches instead, which expires.
+ */
 export const revalidate = 300;
 
-export function generateStaticParams() {
-  return [{ locale: 'ne' }, { locale: 'en' }];
-}
-
-async function fetchHealth(): Promise<'ok' | 'down'> {
-  const origin = process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000';
-
-  try {
-    const response = await fetch(`${origin}/api/v1/health`, {
-      next: { revalidate: 30, tags: ['health'] },
-    });
-
-    if (!response.ok) {
-      return 'down';
-    }
-
-    const body: { status?: string } = await response.json();
-
-    return body.status === 'ok' ? 'ok' : 'down';
-  } catch {
-    return 'down';
-  }
-}
-
-export default async function HomePage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
 
   if (!isLocale(locale)) {
@@ -42,26 +25,46 @@ export default async function HomePage({
   }
 
   const t = translator(await getMessages(locale));
-  const health = await fetchHealth();
+  const result = await fetchLocalLevels();
 
   return (
-    <div className="py-8">
-      <h1 className="text-[28px]">{t('home.title')}</h1>
-      <p className="mt-4 text-slate">{t('home.intro')}</p>
+    <div className="space-y-6 pt-6">
+      <header className="space-y-2">
+        <h1 className="font-display text-[28px] font-bold leading-tight">{t('home.title')}</h1>
+        <p className="text-muted">{t('home.intro')}</p>
+      </header>
 
-      {/* Placeholder ward plate; real ward data arrives with HW-E08-F01-T02. */}
-      <section className="ward-plate mt-8" aria-label={`${t('home.wardPlateLabel')} 4`}>
-        <span className="text-sm uppercase tracking-wide opacity-80">
-          {t('home.wardPlateLabel')}
-        </span>
-        <span className="ward-plate__number">{formatNumber(4, locale)}</span>
+      <section className="space-y-3" aria-labelledby="picker-heading">
+        <h2 id="picker-heading" className="font-display text-[21px] font-semibold">
+          {t('picker.heading')}
+        </h2>
+
+        {!result.ok ? (
+          // Distinguishes "nothing here yet" from "we could not ask".
+          <StateNotice tone="neutral" title={t('error.unavailable')}>
+            {t('error.unavailableHelp')}
+          </StateNotice>
+        ) : result.data.length === 0 ? (
+          <StateNotice tone="neutral" title={t('picker.none')}>
+            {t('picker.noneHelp')}
+          </StateNotice>
+        ) : (
+          <MunicipalityPicker
+            localLevels={result.data}
+            locale={locale}
+            labels={{
+              search: t('picker.search'),
+              wards: t('picker.wards'),
+              empty: t('picker.empty'),
+              typeOf: (type) => (type === null ? '' : t(`type.${type}`)),
+            }}
+          />
+        )}
       </section>
 
-      <ApiStatus
-        status={health}
-        okLabel={t('status.apiOk')}
-        downLabel={t('status.apiDown')}
-      />
+      <StateNotice tone="paused" title={t('picker.notListed')}>
+        {t('picker.notListedHelp')}
+      </StateNotice>
     </div>
   );
 }
