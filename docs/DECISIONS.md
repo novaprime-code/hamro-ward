@@ -390,7 +390,7 @@ Three ways out were considered.
 ## D-015 — Build once, promote the artifact; staging and production from one image
 
 * **Date:** 2026-09-25
-* **Status:** Accepted
+* **Status:** Partly superseded by D-016 (items 4 and 5)
 * **Decided by:** Nova
 * **Relates to:** D-001, `06` §, `13` §4
 
@@ -420,3 +420,40 @@ Two problems with that.
 * Production migrations become a deliberate step in the deploy runbook. That is more work per release and is the point.
 * `APP_ENV=staging` on staging and `production` on production makes `DemoGuard` correct with no extra configuration: the demonstration dataset seeds on staging and is refused on production.
 * The previous `image-api.yml` and `image-web.yml` workflows are replaced and must be deleted, or `main` will build twice.
+
+
+---
+
+## D-016 — Two literal stacks, build-only pipelines, deployment by hand
+
+* **Date:** 2026-09-25
+* **Status:** Accepted
+* **Decided by:** Nova
+* **Supersedes:** D-015 items 4 and 5
+
+### Context
+
+D-015 had `main` re-tag an image built on `staging` rather than rebuilding it, and derived both stacks from one `docker-compose.yml` parameterised by `HW_STACK`. Deployment was to be triggered by a Portainer stack webhook.
+
+Three things were wrong with that in this environment.
+
+**The webhook does not exist.** Portainer lists stack webhooks as a Business Edition feature. On this Community Edition install the toggle is visibly greyed out and labelled "Business Feature".
+
+**The Community webhook that does exist is broken, silently.** Since 2.39.7 it returns HTTP 204 — a success code — and performs no deployment, with nothing written to Portainer's log ([portainer/portainer#13307](https://github.com/portainer/portainer/issues/13307), open). The workflow treated any 2xx as success, so it would have reported a green deploy while the server carried on running the previous image. A pipeline that lies about whether it deployed is worse than no pipeline.
+
+**The parameterised compose file cost more than it saved.** Deriving every container, volume and network name from `$HW_STACK` meant reading a variable to know what a container would be called, for a system one person operates.
+
+### Decision
+
+1. **Two stack directories, each with a literal `docker-compose.yml` and its own `.env.example`:** `infra/stacks/hamroward-staging` and `infra/stacks/hamroward-production`. No interpolated names.
+2. **Branch to environment, one build each.** `staging` builds and tags `:staging`; `main` builds and tags `:production`. No promotion step, no cross-branch image reuse.
+3. **The pipelines build and stop.** Deployment is Portainer → Stacks → *Update the stack* → *Re-pull image*. The job summary prints the exact image reference to deploy and the pinned `sha-` tag for a rollback.
+4. **Both images stay environment-agnostic** (D-015 items 1 and 2 stand). That is what makes a `sha-` tag a valid rollback target in either environment, and it is worth keeping regardless of how deployment is triggered.
+
+### Consequences
+
+* Production runs an image built from `main`, not the exact artifact staging tested. With one person and the same commits flowing through both, that risk is small; the environment-agnostic images mean promotion can be reintroduced later as a workflow change, with no change to the stacks.
+* Deployment requires a human, which for a platform with no on-call is a feature: nothing ships while nobody is watching.
+* The two compose files can drift. They differ only in the name prefix, the image tags and `HW_MIGRATE_ON_BOOT`; `diff` them when anything looks wrong.
+* No deploy secrets exist. Nothing needs inbound access to the server, and there is no webhook URL to leak.
+* If manual deployment becomes tiresome, the next step is GitHub Actions calling the **Portainer API** with an API token — which Community Edition does support — rather than the webhook, and a post-deploy check that the running image reports the expected commit.

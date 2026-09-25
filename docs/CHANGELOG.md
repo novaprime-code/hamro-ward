@@ -2,6 +2,22 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-09-25 (later)
+
+### Decided
+
+* **D-016:** two literal stack files, one build per branch, deployment by hand. Supersedes D-015 items 4 and 5. Portainer stack webhooks are a Business Edition feature — greyed out on this install — and the Community webhook has silently no-opped since 2.39.7, which would have produced green deploys against an unchanged server.
+
+### Code
+
+* `image-staging.yml` and `image-production.yml` reduced to build-and-tag. Each prints the image reference to deploy and the pinned `sha-` tag for rollback in the job summary.
+* `infra/stacks/hamroward-staging/` and `infra/stacks/hamroward-production/`, each a literal compose file plus a fully commented `.env.example`. Replaces the single `HW_STACK`-parameterised file.
+
+### Unchanged
+
+* Environment-agnostic images and the `HW_SITE_URL` runtime read (D-015 items 1–2) stand, and are what make a `sha-` tag a valid rollback target.
+* `HW_MIGRATE_ON_BOOT` stays true on staging, false on production.
+
 ## 2026-09-25
 
 ### Decided

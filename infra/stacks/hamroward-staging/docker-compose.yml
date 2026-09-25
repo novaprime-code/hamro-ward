@@ -1,0 +1,137 @@
+name: hamroward-staging
+
+# Hamro Ward — staging stack.
+#
+# One API image in three roles (app, queue, scheduler), its own Redis, and the
+# Next.js server that also serves the staff dashboard on the admin host.
+#
+# The database is the shared PostgreSQL in ~/stacks/postgres, reached over the
+# "db" network. Only "app" and "web" join the public-facing "web" network, and
+# nothing publishes a port: the proxy forwards to the container names.
+#
+# ---------------------------------------------------------------------------
+# This file is deliberately literal (D-015, revised).
+#
+# An earlier version derived every name from a $HW_STACK variable so that one
+# file served both environments. It worked, but it meant reading a variable to
+# know what a container would be called. Two files you can read top to bottom
+# are easier to operate, and operating this is a one-person job.
+#
+# The cost is drift: a service added here must be added to the other file too.
+# The two files differ only in the name prefix, the image tags and
+# HW_MIGRATE_ON_BOOT — diff them if anything looks wrong.
+# ---------------------------------------------------------------------------
+#
+# Internal routing uses Compose SERVICE names (app, redis), which are scoped to
+# this stack's own backend network, rather than container names, which are
+# global to the Docker host. That is what lets both stacks run on one machine.
+#
+# The provisioner role's password is deliberately NOT here; creating a
+# municipality is a one-off command (see PHASE-4.md).
+
+x-api: &api
+  image: ${HAMROWARD_API_IMAGE:-ghcr.io/OWNER/REPO/api:staging}
+  restart: unless-stopped
+  env_file:
+    - .env
+  volumes:
+    - storage:/var/www/html/storage
+  networks:
+    - backend
+    - db
+
+services:
+  app:
+    <<: *api
+    container_name: hamroward-staging-app
+    environment:
+      # Startup automation from the base image, plus our migrations hook. The
+      # base image's own migration step is off: central migrations run as the
+      # schema owner in docker/entrypoint.d/90-hamroward-migrations.sh.
+      AUTORUN_ENABLED: "true"
+      AUTORUN_LARAVEL_MIGRATION: "false"
+      HEALTHCHECK_PATH: "/up"
+      PHP_OPCACHE_ENABLE: "1"
+      HW_MIGRATE_ON_BOOT: "true"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+      - db
+      - web
+
+  queue:
+    <<: *api
+    container_name: hamroward-staging-queue
+    command: ["php", "/var/www/html/artisan", "queue:work", "--tries=3", "--max-time=3600"]
+    stop_signal: SIGTERM
+    environment:
+      AUTORUN_ENABLED: "false"
+      PHP_OPCACHE_ENABLE: "1"
+    healthcheck:
+      test: ["CMD", "healthcheck-queue"]
+      start_period: 10s
+    depends_on:
+      app:
+        condition: service_started
+
+  scheduler:
+    <<: *api
+    container_name: hamroward-staging-scheduler
+    command: ["php", "/var/www/html/artisan", "schedule:work"]
+    stop_signal: SIGTERM
+    environment:
+      AUTORUN_ENABLED: "false"
+      PHP_OPCACHE_ENABLE: "1"
+    healthcheck:
+      test: ["CMD", "healthcheck-schedule"]
+      start_period: 10s
+    depends_on:
+      app:
+        condition: service_started
+
+  redis:
+    image: redis:7-alpine
+    container_name: hamroward-staging-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  web:
+    image: ${HAMROWARD_WEB_IMAGE:-ghcr.io/OWNER/REPO/web:staging}
+    container_name: hamroward-staging-web
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      app:
+        condition: service_started
+    # Also on backend, so the baked rewrite target http://app:8080 resolves on
+    # a network private to this stack. Resolving it on the shared "web" network
+    # would be ambiguous once a second stack joined with its own "app".
+    networks:
+      - backend
+      - web
+
+volumes:
+  storage:
+    name: hamroward-staging_storage
+  redis:
+    name: hamroward-staging_redis
+
+networks:
+  backend:
+    name: hamroward-staging_backend
+  db:
+    external: true
+  web:
+    external: true

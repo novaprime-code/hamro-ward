@@ -1,12 +1,18 @@
 name: Staging images
 
-# Push to `staging` → build both images, tag them, redeploy the staging stack.
+# Push to `staging` → build both images and tag them `:staging`.
 #
-# Every build produces an immutable `sha-<commit>` tag plus the moving
-# `staging` tag the Portainer stack points at. The sha tag is what makes
-# promotion possible later: when this commit reaches main by a fast-forward
-# merge, the production workflow re-tags THIS image rather than building a
-# second one from the same source (docs/DECISIONS D-015).
+# Building is all this does. Deployment is a button in Portainer, on purpose
+# (D-015, revised): stack webhooks are a Portainer Business feature, and on
+# Community Edition the toggle is greyed out. The Community webhook that does
+# exist has returned HTTP 204 and silently done nothing since 2.39.7
+# (portainer/portainer#13307), which would have given us green deploys and an
+# unchanged server — the worst possible failure. A button that a person presses
+# cannot lie about whether it worked.
+#
+# Every build is tagged twice: `sha-<commit>` never moves and is what you pin
+# or roll back to, `staging` always points at the newest build and is what the
+# stack normally references.
 
 on:
   push:
@@ -27,8 +33,8 @@ env:
 jobs:
   build:
     name: Build ${{ matrix.app }}
-    # arm64 native: the Oracle A1 is aarch64, and cross-building PHP
-    # extensions under QEMU takes roughly ten times as long.
+    # arm64 native: the Oracle A1 is aarch64, and building PHP extensions
+    # under QEMU emulation takes roughly ten times as long.
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -38,10 +44,8 @@ jobs:
       matrix:
         include:
           - app: api
-            context: .
             dockerfile: apps/api/Dockerfile
           - app: web
-            context: .
             dockerfile: apps/web/Dockerfile
 
     steps:
@@ -58,11 +62,12 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.context }}
+          context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          # No build args. Both images are environment-agnostic on purpose:
-          # an image that knows its own hostname cannot be promoted (D-015).
+          # No build args: both images are environment-agnostic, so the same
+          # image runs in staging and production with only its stack
+          # environment differing (D-015).
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}:sha-${{ github.sha }}
             ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}:staging
@@ -70,34 +75,34 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.app }},mode=max
           provenance: false
 
-  deploy:
-    name: Redeploy staging
+      - name: What to deploy
+        run: |
+          {
+            echo "### ${{ matrix.app }}"
+            echo
+            echo 'Moving tag (what the stack references):'
+            echo '```'
+            echo '${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}:staging'
+            echo '```'
+            echo 'Pinned to this commit (for a rollback):'
+            echo '```'
+            echo '${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}:sha-${{ github.sha }}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-reminder:
+    name: Deploy by hand
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger the Portainer stack webhook
-        env:
-          WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK_STAGING }}
-        run: |
-          if [ -z "${WEBHOOK}" ]; then
-            echo "PORTAINER_WEBHOOK_STAGING is not set — images are pushed, deploy by hand."
-            exit 0
-          fi
-
-          # Portainer re-pulls whatever tag the stack references (:staging) and
-          # recreates the containers. A non-2xx is a real failure: the images
-          # are in the registry but the server is still on the old ones.
-          code=$(curl -sS -o /tmp/out -w '%{http_code}' -X POST "${WEBHOOK}")
-          echo "Portainer responded ${code}"
-          cat /tmp/out || true
-          [ "${code}" -ge 200 ] && [ "${code}" -lt 300 ]
-
-      - name: Summary
-        run: |
+      - run: |
           {
-            echo "### Staging"
             echo
-            echo '`sha-${{ github.sha }}` is live on staging.'
+            echo '### Not deployed yet'
             echo
-            echo 'To promote: fast-forward `main` to this commit and push.'
+            echo 'Images are in the registry. To put them on the server:'
+            echo
+            echo '1. Portainer → Stacks → **hamroward-staging**'
+            echo '2. **Update the stack** → tick **Re-pull image**'
+            echo '3. **Update**'
           } >> "$GITHUB_STEP_SUMMARY"
