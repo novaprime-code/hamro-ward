@@ -1,0 +1,108 @@
+name: Production images
+
+# Push to `main` → build both images and tag them `:production`.
+#
+# Building is all this does. Deployment is a button in Portainer, on purpose
+# (D-015, revised): stack webhooks are a Portainer Business feature, and on
+# Community Edition the toggle is greyed out. The Community webhook that does
+# exist has returned HTTP 204 and silently done nothing since 2.39.7
+# (portainer/portainer#13307), which would have given us green deploys and an
+# unchanged server — the worst possible failure. A button that a person presses
+# cannot lie about whether it worked.
+#
+# Every build is tagged twice: `sha-<commit>` never moves and is what you pin
+# or roll back to, `production` always points at the newest build and is what the
+# stack normally references.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'design-v2/**'
+      - '**.md'
+  workflow_dispatch:
+
+concurrency:
+  group: images-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    name: Build ${{ matrix.app }}
+    # arm64 native: the Oracle A1 is aarch64, and building PHP extensions
+    # under QEMU emulation takes roughly ten times as long.
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: api
+            dockerfile: apps/api/Dockerfile
+          - app: web
+            dockerfile: apps/web/Dockerfile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          # No build args: both images are environment-agnostic, so the same
+          # image runs in production and staging with only its stack
+          # environment differing (D-015).
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/hamro-ward-${{ matrix.app }}:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/hamro-ward-${{ matrix.app }}:production
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,scope=${{ matrix.app }},mode=max
+          provenance: false
+
+      - name: What to deploy
+        run: |
+          {
+            echo "### ${{ matrix.app }}"
+            echo
+            echo 'Moving tag (what the stack references):'
+            echo '```'
+            echo '${{ env.REGISTRY }}/${{ github.repository_owner }}/hamro-ward-${{ matrix.app }}:production'
+            echo '```'
+            echo 'Pinned to this commit (for a rollback):'
+            echo '```'
+            echo '${{ env.REGISTRY }}/${{ github.repository_owner }}/hamro-ward-${{ matrix.app }}:sha-${{ github.sha }}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-reminder:
+    name: Deploy by hand
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          {
+            echo
+            echo '### Not deployed yet'
+            echo
+            echo 'Images are in the registry. To put them on the server:'
+            echo
+            echo '1. Portainer → Stacks → **hamroward-production**'
+            echo '2. **Update the stack** → tick **Re-pull image**'
+            echo '3. **Update**'
+          } >> "$GITHUB_STEP_SUMMARY"

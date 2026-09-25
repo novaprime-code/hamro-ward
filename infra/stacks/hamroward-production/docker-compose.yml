@@ -1,0 +1,206 @@
+name: hamroward-prod
+
+# Hamro Ward — production stack.
+#
+# One API image in three roles (app, queue, scheduler), its own Redis, and the
+# Next.js server that also serves the staff dashboard on the admin host.
+#
+# The database is the shared PostgreSQL in ~/stacks/postgres, reached over the
+# "db" network. Only the public-facing services join the "web" network, and
+# nothing publishes a port: the proxy forwards to the container names.
+#
+# ---------------------------------------------------------------------------
+# Why every variable is listed explicitly instead of env_file: .env
+#
+# Portainer SUBSTITUTES the stack's environment variables into this file — it
+# does not write a .env beside it. An `env_file: - .env` therefore fails with
+#
+#   env file /data/compose/<id>/.env not found
+#
+# so each service names what it needs and takes the value by interpolation.
+# More verbose, but it also documents which service gets which secret, and it
+# does not depend on where a given Portainer version puts its env file.
+#
+# The shared blocks below are YAML anchors merged into each service with <<,
+# so a variable is written once.
+# ---------------------------------------------------------------------------
+
+# ---- Shared environment: the Laravel containers ----------------------------
+x-app-env: &app-env
+  APP_NAME: ${APP_NAME}
+  APP_ENV: ${APP_ENV}
+  APP_KEY: ${APP_KEY}
+  APP_DEBUG: ${APP_DEBUG}
+  APP_TIMEZONE: ${APP_TIMEZONE}
+  APP_LOCALE: ${APP_LOCALE}
+  APP_FALLBACK_LOCALE: ${APP_FALLBACK_LOCALE}
+  APP_URL: ${APP_URL}
+  FRONTEND_URL: ${FRONTEND_URL}
+  ADMIN_URL: ${ADMIN_URL}
+  LOG_CHANNEL: ${LOG_CHANNEL}
+  LOG_LEVEL: ${LOG_LEVEL}
+
+  DB_CONNECTION: ${DB_CONNECTION}
+  DB_HOST: ${DB_HOST}
+  DB_PORT: ${DB_PORT}
+  DB_DATABASE: ${DB_DATABASE}
+  DB_USERNAME: ${DB_USERNAME}
+  DB_PASSWORD: ${DB_PASSWORD}
+  DB_OWNER_USERNAME: ${DB_OWNER_USERNAME}
+  DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD}
+
+  TENANT_DB_PREFIX: ${TENANT_DB_PREFIX}
+  TENANT_DB_TEMPLATE: ${TENANT_DB_TEMPLATE}
+  TENANT_DB_USERNAME: ${TENANT_DB_USERNAME}
+  TENANT_DB_PASSWORD: ${TENANT_DB_PASSWORD}
+  TENANT_OWNER_DB_USERNAME: ${TENANT_OWNER_DB_USERNAME}
+  TENANT_OWNER_DB_PASSWORD: ${TENANT_OWNER_DB_PASSWORD}
+  TENANT_DB_OWNER_ROLE: ${TENANT_DB_OWNER_ROLE}
+  TENANT_DB_APP_ROLE: ${TENANT_DB_APP_ROLE}
+  TENANT_DB_BACKUP_ROLE: ${TENANT_DB_BACKUP_ROLE}
+
+  REDIS_CLIENT: ${REDIS_CLIENT}
+  REDIS_HOST: ${REDIS_HOST}
+  REDIS_PORT: ${REDIS_PORT}
+  CACHE_STORE: ${CACHE_STORE}
+  QUEUE_CONNECTION: ${QUEUE_CONNECTION}
+  SESSION_DRIVER: ${SESSION_DRIVER}
+  SESSION_DOMAIN: ${SESSION_DOMAIN}
+  SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE}
+  SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS}
+
+  FILESYSTEM_DISK: ${FILESYSTEM_DISK}
+
+  MAIL_MAILER: ${MAIL_MAILER}
+  MAIL_HOST: ${MAIL_HOST}
+  MAIL_PORT: ${MAIL_PORT}
+  MAIL_USERNAME: ${MAIL_USERNAME}
+  MAIL_PASSWORD: ${MAIL_PASSWORD}
+  MAIL_ENCRYPTION: ${MAIL_ENCRYPTION}
+  MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+  MAIL_FROM_NAME: ${APP_NAME}
+
+  REVALIDATE_URL: ${REVALIDATE_URL}
+  REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+
+  TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY}
+  TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
+
+# ---- Shared environment: the Next.js container -----------------------------
+# Deliberately small. The web container has no business holding database or
+# mail credentials, so it gets only what it renders with.
+x-web-env: &web-env
+  NODE_ENV: production
+  API_INTERNAL_URL: ${API_INTERNAL_URL}
+  HW_SITE_URL: ${HW_SITE_URL}
+  HW_ADMIN_HOST: ${HW_ADMIN_HOST}
+  HW_THEME: ${HW_THEME}
+  REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+
+x-api: &api
+  image: ${HAMROWARD_API_IMAGE:-ghcr.io/novaprime-code/hamro-ward-api:production}
+  restart: unless-stopped
+  volumes:
+    - storage:/var/www/html/storage
+  networks:
+    - backend
+    - db
+
+services:
+  app:
+    <<: *api
+    container_name: hamroward-prod-app
+    environment:
+      <<: *app-env
+      # Startup automation from the base image, plus our migrations hook. The
+      # base image's own migration step is off: central migrations run as the
+      # schema owner in docker/entrypoint.d/90-hamroward-migrations.sh.
+      AUTORUN_ENABLED: "true"
+      AUTORUN_LARAVEL_MIGRATION: "false"
+      HEALTHCHECK_PATH: "/up"
+      PHP_OPCACHE_ENABLE: "1"
+      HW_MIGRATE_ON_BOOT: "false"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+      - db
+      - web
+
+  queue:
+    <<: *api
+    container_name: hamroward-prod-queue
+    command: ["php", "/var/www/html/artisan", "queue:work", "--tries=3", "--max-time=3600"]
+    stop_signal: SIGTERM
+    environment:
+      <<: *app-env
+      AUTORUN_ENABLED: "false"
+      PHP_OPCACHE_ENABLE: "1"
+    healthcheck:
+      test: ["CMD", "healthcheck-queue"]
+      start_period: 10s
+    depends_on:
+      app:
+        condition: service_started
+
+  scheduler:
+    <<: *api
+    container_name: hamroward-prod-scheduler
+    command: ["php", "/var/www/html/artisan", "schedule:work"]
+    stop_signal: SIGTERM
+    environment:
+      <<: *app-env
+      AUTORUN_ENABLED: "false"
+      PHP_OPCACHE_ENABLE: "1"
+    healthcheck:
+      test: ["CMD", "healthcheck-schedule"]
+      start_period: 10s
+    depends_on:
+      app:
+        condition: service_started
+
+  redis:
+    image: redis:7-alpine
+    container_name: hamroward-prod-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  web:
+    image: ${HAMROWARD_WEB_IMAGE:-ghcr.io/novaprime-code/hamro-ward-web:production}
+    container_name: hamroward-prod-web
+    restart: unless-stopped
+    environment:
+      <<: *web-env
+    depends_on:
+      app:
+        condition: service_started
+    # Also on backend, so the baked rewrite target http://app:8080 resolves on
+    # a network private to this stack. Resolving it on the shared "web" network
+    # would be ambiguous once a second stack joined with its own "app".
+    networks:
+      - backend
+      - web
+
+volumes:
+  storage:
+    name: hamroward-prod_storage
+  redis:
+    name: hamroward-prod_redis
+
+networks:
+  backend:
+    name: hamroward-prod_backend
+  db:
+    external: true
+  web:
+    external: true

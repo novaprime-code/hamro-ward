@@ -5,13 +5,26 @@
 #
 # Build context: the repository root (this is a pnpm workspace), so the build can
 # see pnpm-workspace.yaml, the root package.json and, later, packages/api-client.
-# Built for linux/arm64 by .github/workflows/image-web.yml
+# Built for linux/arm64 by .github/workflows/image-{staging,production}.yml
 #
-# Two kinds of build-time values, both baked into the image:
-#   NEXT_PUBLIC_*     end up in the browser bundle
-#   API_INTERNAL_URL  is used by next.config.ts rewrites, which Next.js compiles
-#                     into the routes manifest at build time — changing it needs
-#                     a rebuild, not just a restart
+# ---------------------------------------------------------------------------
+# This image takes NO environment-specific build arguments, and that is the
+# point (D-015).
+#
+# It used to take NEXT_PUBLIC_SITE_URL and NEXT_PUBLIC_ADMIN_HOST. Anything
+# prefixed NEXT_PUBLIC_ is compiled into the browser bundle, which made the
+# image specific to one environment: promoting the staging image to production
+# would have served production visitors a bundle carrying staging's hostnames.
+# Building a second image instead would mean production runs bytes that were
+# never tested. Neither is acceptable, so the values moved to runtime —
+# HW_SITE_URL is read by the server when it renders metadata.
+#
+# API_INTERNAL_URL is still baked, because Next.js resolves rewrites into the
+# routes manifest during `next build`. It is safe to bake because it names the
+# Compose SERVICE ("app"), not a container: service names are scoped to the
+# stack's own network, so the same value is correct in every environment and
+# two stacks can sit on one host without colliding.
+# ---------------------------------------------------------------------------
 
 ARG NODE_VERSION=22
 
@@ -29,12 +42,9 @@ FROM node:${NODE_VERSION}-alpine AS builder
 RUN corepack enable
 WORKDIR /repo
 
-ARG NEXT_PUBLIC_SITE_URL
-ARG NEXT_PUBLIC_ADMIN_HOST
-ARG API_INTERNAL_URL=http://hamroward-app:8080
-ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL} \
-    NEXT_PUBLIC_ADMIN_HOST=${NEXT_PUBLIC_ADMIN_HOST} \
-    API_INTERNAL_URL=${API_INTERNAL_URL} \
+# Same in every environment: "app" is the Compose service name on the stack's
+# private backend network.
+ENV API_INTERNAL_URL=http://app:8080 \
     NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /repo/node_modules ./node_modules
@@ -45,6 +55,11 @@ RUN pnpm --filter web build
 RUN mkdir -p apps/web/public
 RUN test -f apps/web/.next/standalone/apps/web/server.js \
     || { echo "ERROR: .next/standalone/apps/web/server.js is missing. Keep output: 'standalone' in next.config.ts."; exit 1; }
+
+# A build that leaked an environment name into the bundle would be promotable
+# in theory and wrong in practice, so the build fails instead.
+RUN ! grep -rqlE 'hw\.jayshyampatel|staging\.hamroward' apps/web/.next/static 2>/dev/null \
+    || { echo "ERROR: an environment hostname was compiled into the browser bundle. Keep environment values out of NEXT_PUBLIC_* (D-015)."; exit 1; }
 
 # ---- 3. Runtime -------------------------------------------------------------
 FROM node:${NODE_VERSION}-alpine AS runner
