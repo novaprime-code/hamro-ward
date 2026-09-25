@@ -7,171 +7,100 @@ namespace App\Modules\Tenancy\Console;
 use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Geography\Models\AdminUnitSlug;
-use App\Modules\Tenancy\Actions\CreateTenantDatabase;
-use App\Modules\Tenancy\Actions\DropTenantDatabase;
-use App\Modules\Tenancy\Actions\MigrateTenant;
-use App\Modules\Tenancy\Actions\SyncTenantReferenceData;
-use App\Modules\Tenancy\Enums\TenantStatus;
-use App\Modules\Tenancy\Models\Tenant;
+use App\Modules\Tenancy\Actions\CreateTenant;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
- * Onboards one local level: creates its database from the template, migrates it,
- * copies the reference data in, and marks it active (docs/12 §5).
+ * `hw:tenant:create koshi/sunsari/koshara` — onboards a local level
+ * (HW-E29-F02-T01).
  *
- * The database still has to be published separately (admin_units.is_published),
- * so onboarding never makes a half-checked municipality public by itself.
+ * Takes the slug path rather than a UUID, because the slug path is what an
+ * operator can read off the public URL and check against the map. A UUID in a
+ * runbook is a UUID nobody verifies.
  *
- * Needs the hw_provisioner password, which is not part of the running stack's
- * environment: pass --provisioner-password, set TENANT_PROVISIONER_PASSWORD for
- * this one command, or let the prompt ask for it.
+ * Creating a database is not reversible by pressing Ctrl-C, so the command
+ * confirms first and prints exactly what it is about to do.
  */
 final class CreateTenantCommand extends Command
 {
     protected $signature = 'hw:tenant:create
-        {local_level : slug path (province/district/local-level) or the unit UUID}
-        {--provisioner-password= : password of the hw_provisioner role}
-        {--no-interaction-password : fail instead of prompting for the password}';
+                            {path : Slug path of the local level, e.g. koshi/sunsari/koshara}
+                            {--force : Skip the confirmation prompt}';
 
-    protected $description = 'Create and prepare the database for one local level';
+    protected $description = 'Onboard a local level: create its tenant, database, schema and reference data';
 
-    public function handle(
-        CreateTenantDatabase $createDatabase,
-        MigrateTenant $migrate,
-        SyncTenantReferenceData $syncReferenceData,
-        DropTenantDatabase $drop,
-    ): int {
-        $unit = $this->resolveLocalLevel((string) $this->argument('local_level'));
+    public function handle(CreateTenant $createTenant): int
+    {
+        $path = trim((string) $this->argument('path'), '/');
+        $localLevel = $this->resolve($path);
 
-        if (! $unit instanceof AdminUnit) {
-            return self::FAILURE;
-        }
-
-        if (Tenant::query()->where('admin_unit_id', $unit->id)->exists()) {
-            $this->components->error("{$unit->slug} already has a tenant. Use hw:tenant:list.");
+        if ($localLevel === null) {
+            $this->components->error("No local level found at \"{$path}\".");
+            $this->line('  Slug paths look like province/district/local-level, and the unit must be published.');
 
             return self::FAILURE;
         }
 
-        if (! $this->useProvisionerPassword()) {
-            return self::FAILURE;
+        $this->components->twoColumnDetail('Local level', $localLevel->displayName('en').' ('.$path.')');
+        $this->components->twoColumnDetail('Type', (string) $localLevel->local_level_type?->value);
+        $this->components->twoColumnDetail(
+            'Wards',
+            (string) AdminUnit::query()
+                ->where('parent_id', $localLevel->id)
+                ->where('level', AdminLevel::Ward->value)
+                ->whereNull('valid_to')
+                ->count(),
+        );
+
+        if (! $this->option('force') && ! $this->confirm('Create a database for this local level?', true)) {
+            $this->components->warn('Nothing was created.');
+
+            return self::SUCCESS;
         }
-
-        $this->components->info("Onboarding {$unit->name_en} ({$unit->slug}) …");
-
-        $tenant = Tenant::query()->create([
-            'admin_unit_id' => $unit->id,
-            'status' => TenantStatus::Provisioning,
-        ]);
 
         try {
-            $this->components->task('create database '.$tenant->database_name, function () use ($createDatabase, $tenant): void {
-                $createDatabase->handle($tenant);
-            });
-
-            $this->components->task('run tenant migrations', function () use ($migrate, $tenant): void {
-                $migrate->handle($tenant);
-            });
-
-            $this->components->task('copy reference data', function () use ($syncReferenceData, $tenant): void {
-                $syncReferenceData->handle($tenant);
-            });
-
-            $tenant->forceFill([
-                'status' => TenantStatus::Active,
-                'onboarded_at' => now(),
-            ])->save();
-        } catch (Throwable $e) {
-            report($e);
-            $this->components->error('Onboarding failed: '.$e->getMessage());
-            $this->components->warn('Rolling back …');
-
-            try {
-                $drop->force($tenant);
-            } catch (Throwable $dropFailure) {
-                report($dropFailure);
-                $this->components->warn("Could not drop {$tenant->database_name}: ".$dropFailure->getMessage());
-            }
-
-            $tenant->delete();
+            $tenant = $createTenant->handle($localLevel);
+        } catch (Throwable $exception) {
+            $this->components->error($exception->getMessage());
+            $this->line('  If a tenant row was created it is now in maintenance; inspect it before retrying.');
 
             return self::FAILURE;
         }
 
-        $tenant->refresh();
-
         $this->newLine();
-        $this->components->twoColumnDetail('Local level', (string) ($unit->name_en ?? $unit->name_ne));
-        $this->components->twoColumnDetail('Tenant key', $tenant->tenant_key);
-        $this->components->twoColumnDetail('Database', $tenant->database_name);
+        $this->components->info("Tenant {$tenant->tenant_key} is active.");
+        $this->components->twoColumnDetail('Database', (string) $tenant->database_name);
         $this->components->twoColumnDetail('Schema version', (string) $tenant->schema_version);
-        $this->components->twoColumnDetail('Status', $tenant->status->value);
-        $this->newLine();
-        $this->components->info('Onboarded. It becomes public only once the unit and its wards are published.');
+        $this->components->twoColumnDetail('Reference version', (string) $tenant->reference_version);
 
         return self::SUCCESS;
     }
 
-    private function resolveLocalLevel(string $identifier): ?AdminUnit
+    /**
+     * Resolves by current slug path, then falls back to the unit's own slug
+     * when the path has only one segment — enough for local work, where nobody
+     * types the whole chain.
+     */
+    private function resolve(string $path): ?AdminUnit
     {
-        $unit = AdminUnit::query()->find($identifier);
+        $slug = AdminUnitSlug::query()
+            ->where('slug_path', $path)
+            ->where('is_current', true)
+            ->first();
 
-        if ($unit === null) {
-            $slugPath = trim($identifier, '/');
-
-            $unitId = AdminUnitSlug::query()
-                ->where('slug_path', $slugPath)
-                ->where('is_current', true)
-                ->value('admin_unit_id');
-
-            $unit = $unitId === null ? null : AdminUnit::query()->find($unitId);
+        if ($slug !== null) {
+            return AdminUnit::query()->find($slug->admin_unit_id);
         }
 
-        if (! $unit instanceof AdminUnit) {
-            $this->components->error("No administrative unit matches [{$identifier}].");
-            $this->components->info('Use the slug path, for example: koshi/sunsari/namuna');
-
-            return null;
+        if (! str_contains($path, '/')) {
+            return AdminUnit::query()
+                ->where('level', AdminLevel::LocalLevel->value)
+                ->where('slug', $path)
+                ->whereNull('valid_to')
+                ->first();
         }
 
-        if ($unit->level !== AdminLevel::LocalLevel) {
-            $this->components->error("{$unit->slug} is a {$unit->level->value}; only a local level can be a tenant.");
-
-            return null;
-        }
-
-        if (! $unit->isCurrent()) {
-            $this->components->error("{$unit->slug} is historical and cannot be onboarded.");
-
-            return null;
-        }
-
-        return $unit;
-    }
-
-    private function useProvisionerPassword(): bool
-    {
-        $password = (string) ($this->option('provisioner-password') ?? '');
-
-        if ($password === '') {
-            $password = (string) config('database.connections.provisioner.password');
-        }
-
-        if ($password === '' && ! $this->option('no-interaction-password') && $this->input->isInteractive()) {
-            $password = (string) $this->secret('Password of the hw_provisioner role');
-        }
-
-        if ($password === '') {
-            $this->components->error('No provisioner password. Pass --provisioner-password or set TENANT_PROVISIONER_PASSWORD for this command.');
-
-            return false;
-        }
-
-        config(['database.connections.provisioner.password' => $password]);
-        DB::purge('provisioner');
-
-        return true;
+        return null;
     }
 }
