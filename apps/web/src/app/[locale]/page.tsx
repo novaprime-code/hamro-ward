@@ -38,11 +38,13 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
    * Only the types actually present are looked up, so adding a local-level
    * type needs no change here.
    */
-  const typeLabels = Object.fromEntries(
-    Array.from(
-      new Set(localLevels.map((level) => level.type).filter((type): type is string => Boolean(type))),
-    ).map((type) => [type, t(`type.${type}`)]),
-  );
+  const typeLabels: Record<string, string> = {};
+
+  for (const level of localLevels) {
+    if (level.type !== null && !(level.type in typeLabels)) {
+      typeLabels[level.type] = t(`type.${level.type}`);
+    }
+  }
 
   return (
     <div className="space-y-6 pt-6">
