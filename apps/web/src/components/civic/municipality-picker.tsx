@@ -18,6 +18,10 @@ import type { Locale } from '@/i18n/config';
  * Matching is accent-blind across both scripts and the slug, so a citizen who
  * knows the name in Devanagari, in romanised form, or only from the URL all
  * reach the same place.
+ *
+ * Every label arrives as a finished string. This is a client component, so
+ * anything it receives is serialised across the boundary — a function would
+ * fail the render, not degrade.
  */
 export function MunicipalityPicker({
   localLevels,
@@ -26,7 +30,12 @@ export function MunicipalityPicker({
 }: {
   localLevels: LocalLevelSummary[];
   locale: Locale;
-  labels: { search: string; wards: string; empty: string; typeOf: (type: string | null) => string };
+  labels: {
+    search: string;
+    wards: string;
+    empty: string;
+    typeLabels: Record<string, string>;
+  };
 }) {
   const [query, setQuery] = useState('');
 
@@ -77,7 +86,9 @@ export function MunicipalityPicker({
                   {pick(level.district, locale)} · {pick(level.province, locale)} ·{' '}
                   {formatNumber(level.wards, locale)} {labels.wards}
                 </span>
-                <span className="block text-sm text-muted">{labels.typeOf(level.type)}</span>
+                <span className="block text-sm text-muted">
+                  {level.type ? (labels.typeLabels[level.type] ?? '') : ''}
+                </span>
               </Link>
             </li>
           ))}
