@@ -82,10 +82,25 @@ final class DemoGuard
         if ($collisions->isNotEmpty()) {
             throw DemoDataException::nameCollision(
                 $collisions->map(
-                    static fn (AdminUnit $unit): string => $unit->displayName('en').' ('.$unit->slug.')',
+                    static fn (AdminUnit $unit): string => self::label($unit),
                 )->all(),
             );
         }
+    }
+
+    /**
+     * A readable label for the error message.
+     *
+     * Written out rather than calling a display-name helper on the model: the
+     * central AdminUnit has no such method, and this line only ever runs while
+     * reporting a collision — the one moment when a second fatal error would
+     * hide the thing being reported.
+     */
+    private static function label(AdminUnit $unit): string
+    {
+        $name = $unit->name_en ?: ($unit->name_ne ?: $unit->slug);
+
+        return $name.' ('.$unit->slug.')';
     }
 
     /**
