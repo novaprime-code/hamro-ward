@@ -40,6 +40,29 @@ final class TenantAdminUnit extends Model
 
     protected $table = 'admin_units';
 
+    /**
+     * The primary key is a uuid, and saying so is not optional.
+     *
+     * Eloquent's getCasts() does this:
+     *
+     *     if ($this->getIncrementing()) {
+     *         return array_merge([$this->getKeyName() => $this->getKeyType()], $this->casts);
+     *     }
+     *
+     * Both defaults apply unless a model overrides them — $incrementing is
+     * true and $keyType is 'int' — so without these two lines every read of
+     * $unit->id returns (int) '81014cad-5f3a-…', which PHP evaluates to 81014,
+     * or to 0 when the uuid happens to start with a letter. No error, no
+     * warning: just a number where an identifier should be.
+     *
+     * The models that write their own ids get this from the HasUuids trait.
+     * This one is a replica — ids arrive from central and are never generated
+     * here — so it states the two facts directly instead.
+     */
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
     protected $guarded = [];
 
     protected function casts(): array
