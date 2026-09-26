@@ -41,6 +41,18 @@ final class Person extends Model
     use HasUuids;
     use UsesCentralConnection;
 
+    /**
+     * Required, and not a style preference: Eloquent's default table name is
+     * the pluralised class name, and Laravel's pluraliser turns Person into
+     * "people". The table is `persons` (docs/05 §5.2) because the domain term
+     * throughout this project is a person record, and because `persons` sorts
+     * next to `person_aliases` and `person_merges` in a schema listing.
+     *
+     * Without this line every query on this model asks for a table that does
+     * not exist, and the first thing to find out is whatever runs first.
+     */
+    protected $table = 'persons';
+
     protected $guarded = [];
 
     protected function casts(): array
@@ -56,10 +68,17 @@ final class Person extends Model
         return 'slug';
     }
 
-    /** @return HasMany<PersonAlias, $this> */
+    /**
+     * The foreign key is named explicitly. Eloquent would derive `person_id`
+     * from the class name here, which is right today, but it derives it from
+     * the class name rather than the table — the same split that produced the
+     * bug this class's $table now prevents.
+     *
+     * @return HasMany<PersonAlias, $this>
+     */
     public function aliases(): HasMany
     {
-        return $this->hasMany(PersonAlias::class);
+        return $this->hasMany(PersonAlias::class, 'person_id');
     }
 
     /** @return BelongsTo<Person, $this> */
