@@ -120,6 +120,22 @@ services:
       HEALTHCHECK_PATH: "/up"
       PHP_OPCACHE_ENABLE: "1"
       HW_MIGRATE_ON_BOOT: "true"
+
+      # ---- Provisioning credentials: this container only --------------------
+      # `hw:tenant:create` and `hw:demo:seed` create databases, which needs the
+      # hw_provisioner role (CREATEDB). config/database.php reads these into
+      # the "provisioner" connection, which points at the `postgres`
+      # maintenance database rather than at any tenant.
+      #
+      # Deliberately NOT in the shared x-app-env anchor: the queue and
+      # scheduler containers never provision, so they never hold the password.
+      # docs/12 §7 wants it away from request-serving containers too; this one
+      # both serves requests and runs the CLI, so that separation is partial
+      # until provisioning moves to a one-off container. Stated rather than
+      # pretended.
+      TENANT_PROVISIONER_DATABASE: ${TENANT_PROVISIONER_DATABASE}
+      TENANT_PROVISIONER_USERNAME: ${TENANT_PROVISIONER_USERNAME}
+      TENANT_PROVISIONER_PASSWORD: ${TENANT_PROVISIONER_PASSWORD}
     depends_on:
       redis:
         condition: service_healthy

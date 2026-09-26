@@ -33,7 +33,17 @@ final class SeedDemoCommand extends Command
         }
 
         try {
-            $result = $seed->handle(fn (string $line): mixed => $this->components->task($line, null));
+            /*
+             * Each line is printed as the step STARTS, so the last line on the
+             * screen is the step that failed.
+             *
+             * This used to call components->task($line, null). With a null
+             * callback that prints the label and "DONE" immediately, before any
+             * of the work runs — so a fatal error appeared under a step marked
+             * DONE, and the step that actually failed looked like the next one.
+             * A progress marker that cannot fail is worse than none.
+             */
+            $result = $seed->handle(fn (string $line): mixed => $this->line("  <fg=gray>›</> {$line}"));
         } catch (DemoDataException $exception) {
             $this->newLine();
             $this->components->error($exception->getMessage());

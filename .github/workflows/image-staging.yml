@@ -43,9 +43,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # The two images take DIFFERENT build contexts, and getting this
+          # wrong is what broke the first run of this workflow.
+          #
+          # The API Dockerfile copies `docker/entrypoint.d/...` and
+          # `composer.json` as top-level paths, so its context is apps/api.
+          # The web Dockerfile needs the repository root: apps/web is a pnpm
+          # workspace member and the build has to see pnpm-workspace.yaml and
+          # the root lockfile.
           - app: api
+            context: apps/api
             dockerfile: apps/api/Dockerfile
           - app: web
+            context: .
             dockerfile: apps/web/Dockerfile
 
     steps:
@@ -62,7 +72,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: true
           # No build args: both images are environment-agnostic, so the same

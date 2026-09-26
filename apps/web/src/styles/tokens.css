@@ -1,0 +1,151 @@
+/* =============================================================================
+   Hamro Ward — palettes
+   =============================================================================
+   This is the only file that contains a colour value. Everything else in the
+   application refers to semantic names (--surface, --accent, --state-verified),
+   so changing the whole look means editing this file — or switching palette with
+   one environment variable, HW_THEME.
+
+   Adding a palette:
+     1. copy a block below, give it a new [data-theme="name"] selector,
+     2. add the name to THEMES in src/lib/theme.ts,
+     3. done — no component changes.
+
+   Rules that hold in every palette:
+     - no red, green, saffron or royal blue as the accent: they read as party or
+       flag colours,
+     - body text on --surface must reach 4.5:1, large text and icons 3:1,
+     - colour never carries meaning alone; every state also has an icon and words.
+   ========================================================================== */
+
+/* --- 1. Himal — cool slate with deep teal -------------------------------- */
+[data-theme="himal"] {
+  --bg: #e9eff2;
+  --surface: #fbfdfd;
+  --surface-2: #ffffff;
+  --text: #14212a;
+  --text-muted: #51646f;
+  --line: #d3dee3;
+
+  --accent: #0f6e70;
+  --accent-ink: #0b5254;
+  --on-accent: #f2fbfb;
+  --accent-wash: #e2f1f1;
+
+  --plate-bg: #14212a;
+  --plate-number: #5fd3c8;
+
+  --state-verified: #136b5b;
+  --state-pending: #8a6410;
+  --state-vacant: #5b6470;
+  --danger: #a32626;
+}
+
+/* --- 2. Sal — walnut and amber, like a wooden notice board ---------------- */
+[data-theme="sal"] {
+  --bg: #f1eae0;
+  --surface: #fdfaf5;
+  --surface-2: #ffffff;
+  --text: #33241a;
+  --text-muted: #6b5847;
+  --line: #e3d7c6;
+
+  --accent: #b4762a;
+  --accent-ink: #875719;
+  --on-accent: #fff9ef;
+  --accent-wash: #f7ebd8;
+
+  --plate-bg: #33241a;
+  --plate-number: #e6a84e;
+
+  --state-verified: #3f6b41;
+  --state-pending: #96671a;
+  --state-vacant: #6b5847;
+  --danger: #9c3025;
+}
+
+/* --- 3. Aaba — plum, quiet and unusual ----------------------------------- */
+[data-theme="aaba"] {
+  --bg: #f1ecf1;
+  --surface: #fcfafc;
+  --surface-2: #ffffff;
+  --text: #241a28;
+  --text-muted: #5f5266;
+  --line: #e0d6e2;
+
+  --accent: #6b3a5b;
+  --accent-ink: #552e48;
+  --on-accent: #fdf7fb;
+  --accent-wash: #f3e7ef;
+
+  --plate-bg: #241a28;
+  --plate-number: #e2adcd;
+
+  --state-verified: #2f6152;
+  --state-pending: #7d5a1c;
+  --state-vacant: #5f5266;
+  --danger: #9c2b3f;
+}
+
+/* --- 4. Raat — night, for phones after dark ------------------------------ */
+[data-theme="raat"] {
+  --bg: #080d13;
+  --surface: #111a23;
+  --surface-2: #18242f;
+  --text: #e7eef3;
+  --text-muted: #9aaebc;
+  --line: #25323f;
+
+  --accent: #67d6b5;
+  --accent-ink: #8fe5c9;
+  --on-accent: #08131b;
+  --accent-wash: #132c2a;
+
+  --plate-bg: #050a0f;
+  --plate-number: #67d6b5;
+
+  --state-verified: #67d6b5;
+  --state-pending: #e2b657;
+  --state-vacant: #9aaebc;
+  --danger: #f2857f;
+}
+
+/* --- 5. Kagaj — newsprint black and white, one violet -------------------- */
+[data-theme="kagaj"] {
+  --bg: #f0f0ee;
+  --surface: #ffffff;
+  --surface-2: #ffffff;
+  --text: #111111;
+  --text-muted: #5a5a5a;
+  --line: #dcdcda;
+
+  --accent: #5b21b6;
+  --accent-ink: #4c1d95;
+  --on-accent: #ffffff;
+  --accent-wash: #eee8fb;
+
+  --plate-bg: #111111;
+  --plate-number: #ffffff;
+
+  --state-verified: #1f5e3a;
+  --state-pending: #7a5b00;
+  --state-vacant: #5a5a5a;
+  --danger: #a81f1f;
+}
+
+/* --- shape, space and motion: shared by every palette -------------------- */
+:root {
+  --radius-control: 6px;
+  --radius-sheet: 14px;
+  --radius-card: 8px;
+
+  --measure: 70ch;
+  --content-width: 720px;
+
+  /* Devanagari matras and conjuncts need room (docs/09 §3.2, NFR-ACC-02) */
+  --text-base: 17px;
+  --leading-base: 1.65;
+  --leading-heading: 1.25;
+
+  --tap-target: 44px;
+}

@@ -8,6 +8,7 @@ use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Geography\Models\AdminUnitSlug;
 use App\Modules\Tenancy\Actions\CreateTenant;
+use BackedEnum;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -42,8 +43,8 @@ final class CreateTenantCommand extends Command
             return self::FAILURE;
         }
 
-        $this->components->twoColumnDetail('Local level', $localLevel->displayName('en').' ('.$path.')');
-        $this->components->twoColumnDetail('Type', (string) $localLevel->local_level_type?->value);
+        $this->components->twoColumnDetail('Local level', $this->label($localLevel).' ('.$path.')');
+        $this->components->twoColumnDetail('Type', $this->plain($localLevel->local_level_type));
         $this->components->twoColumnDetail(
             'Wards',
             (string) AdminUnit::query()
@@ -102,5 +103,25 @@ final class CreateTenantCommand extends Command
         }
 
         return null;
+    }
+
+    /**
+     * The central AdminUnit has no display-name helper, so the label is built
+     * from the columns. A command that dies while printing a heading is a
+     * command that never gets to say what went wrong.
+     */
+    private function label(AdminUnit $unit): string
+    {
+        return $unit->name_en ?: ($unit->name_ne ?: $unit->slug);
+    }
+
+    /** Prints a column whether or not the model casts it to an enum. */
+    private function plain(mixed $value): string
+    {
+        return match (true) {
+            $value instanceof BackedEnum => (string) $value->value,
+            is_scalar($value) => (string) $value,
+            default => '—',
+        };
     }
 }

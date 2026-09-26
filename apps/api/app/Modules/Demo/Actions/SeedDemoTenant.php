@@ -21,6 +21,7 @@ use App\Modules\Provenance\Models\TenantSource;
 use App\Modules\Provenance\Models\TenantSourceLink;
 use App\Modules\Tenancy\Models\Tenant;
 use App\Modules\Tenancy\TenantManager;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -48,6 +49,11 @@ use Illuminate\Support\Facades\DB;
  * Sources are attributed to the invented municipality and its ward offices,
  * never to the Election Commission or the Government of Nepal (docs/13 §4).
  * Invented data must not borrow a real national institution's authority.
+ *
+ * ---------------------------------------------------------------------------
+ * Every write goes through put(), which uses forceFill rather than
+ * updateOrCreate. That is not a preference — see the note on put() itself.
+ * ---------------------------------------------------------------------------
  */
 final class SeedDemoTenant
 {
@@ -92,10 +98,58 @@ final class SeedDemoTenant
     }
 
     /**
-     * Two sources per tenant: the municipality's own record, and a ward-office
-     * notice. Both use the .example reserved domain, which can never be
-     * registered by anyone, so a demonstration link cannot one day resolve to
-     * a stranger's website.
+     * Insert or update one row by its deterministic id, bypassing
+     * mass-assignment protection.
+     *
+     * updateOrCreate() runs the attributes through fill(), which silently
+     * DROPS anything missing from the model's $fillable — including `id`. A
+     * model with HasUuids then generates a fresh uuid, so the row exists under
+     * an identifier the seeder has never seen. Nothing errors. The next insert
+     * that references the intended id fails instead, in a different table,
+     * pointing at a source that "does not exist in this tenant".
+     *
+     * The Provenance models have exactly that shape. Rather than depend on the
+     * $fillable list of every model this action touches — most of which belong
+     * to other modules and may change — the seeder writes with forceFill and
+     * keeps its own ids. A seeder is not user input; there is nothing here to
+     * protect against.
+     *
+     * @template TModel of Model
+     *
+     * @param  class-string<TModel>  $model
+     * @param  array<string, mixed>  $attributes
+     * @return TModel
+     */
+    private function put(string $model, string $id, array $attributes): Model
+    {
+        /** @var TModel $row */
+        $row = $model::query()->find($id) ?? new $model;
+
+        $row->forceFill(['id' => $id, ...$attributes])->save();
+
+        return $row;
+    }
+
+    /**
+     * A value for a jsonb column, correct whether or not the model casts it.
+     *
+     * With a json/array cast Eloquent encodes on write, so the raw PHP value is
+     * what it wants. Without one, PostgreSQL needs valid JSON text — a bare
+     * string is rejected by jsonb.
+     */
+    private function jsonValue(mixed $value): mixed
+    {
+        return (new TenantSourceLink)->hasCast('asserted_value', ['array', 'json', 'object', 'collection'])
+            ? $value
+            : json_encode($value, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Three sources per tenant: the municipality's own record, a ward-office
+     * notice, and one social-media claim that exists to be contradicted. All
+     * use the .example reserved domain, which can never be registered by
+     * anyone, so a demonstration link cannot one day resolve to a stranger's
+     * website.
      */
     private function sources(DemoLocalLevel $demo): int
     {
@@ -106,18 +160,15 @@ final class SeedDemoTenant
         ];
 
         foreach ($sources as [$key, $type, $title, $path]) {
-            TenantSource::query()->updateOrCreate(
-                ['id' => DemoDataset::id('source', $demo->key, $key)],
-                [
-                    'source_type_key' => $type->value,
-                    'title' => $title,
-                    'publisher' => $demo->nameNe,
-                    'url' => "https://demo.hamroward.example/{$demo->key}/{$path}.pdf",
-                    'language' => 'ne',
-                    'published_at' => '2022-06-15',
-                    'retrieved_at' => now(),
-                ],
-            );
+            $this->put(TenantSource::class, DemoDataset::id('source', $demo->key, $key), [
+                'source_type_key' => $type->value,
+                'title' => $title,
+                'publisher' => $demo->nameNe,
+                'url' => "https://demo.hamroward.example/{$demo->key}/{$path}.pdf",
+                'language' => 'ne',
+                'published_at' => '2022-06-15',
+                'retrieved_at' => now(),
+            ]);
         }
 
         return count($sources);
@@ -136,13 +187,13 @@ final class SeedDemoTenant
             $holding = $this->holding(
                 $demo,
                 $positionKey,
-                $localLevel->id,
+                (string) $localLevel->id,
                 seatIndex: 1,
                 personIndex: $ordinal,
                 seatOrdinal: $ordinal,
             );
 
-            $this->verify($demo, $holding->id, 'office_holding');
+            $this->verify($demo, (string) $holding->id, 'office_holding');
             $seated++;
         }
 
@@ -156,7 +207,8 @@ final class SeedDemoTenant
 
         if ($pattern === 0) {
             // Nothing is known about this ward. Every seat reads not_verified,
-            // which is the honest answer and must look different from "vacant".
+            // which is the honest answer and must look different from "nobody
+            // holds this office".
             return ['holdings' => 0, 'vacancies' => 0];
         }
 
@@ -176,30 +228,31 @@ final class SeedDemoTenant
             $seatOrdinal = ($ward->ward_number * 7) + $offset;
 
             if ($pattern === 2 && $positionKey === PositionKey::WardMemberDalitWoman) {
-                $vacancy = Vacancy::query()->updateOrCreate(
-                    ['id' => DemoDataset::id('vacancy', $demo->key, (string) $ward->ward_number)],
+                $vacancy = $this->put(
+                    Vacancy::class,
+                    DemoDataset::id('vacancy', $demo->key, (string) $ward->ward_number),
                     [
                         'position_key' => $positionKey->value,
-                        'constituency_id' => $ward->id,
+                        'constituency_id' => (string) $ward->id,
                         'seat_index' => $seatIndex,
                         'vacant_from' => '2022-05-30',
-                        'reason' => VacancyReason::NoCandidate,
+                        'reason' => VacancyReason::NoCandidate->value,
                         'note' => 'यो आरक्षित पदमा कुनै उम्मेदवार उठेनन् (नमुना तथ्यांक)।',
                     ],
                 );
 
-                $this->verify($demo, $vacancy->id, 'vacancy');
+                $this->verify($demo, (string) $vacancy->id, 'vacancy');
                 $vacancies++;
 
                 continue;
             }
 
-            $holding = $this->holding($demo, $positionKey, $ward->id, $seatIndex, $personIndex, $seatOrdinal);
+            $holding = $this->holding($demo, $positionKey, (string) $ward->id, $seatIndex, $personIndex, $seatOrdinal);
             $holdings++;
 
             // Pattern 3 leaves holdings deliberately unsourced.
             if ($pattern !== 3) {
-                $this->verify($demo, $holding->id, 'office_holding');
+                $this->verify($demo, (string) $holding->id, 'office_holding');
             }
 
             if ($ward->ward_number === 1 && $positionKey === PositionKey::WardChair) {
@@ -220,8 +273,10 @@ final class SeedDemoTenant
     ): OfficeHolding {
         $partyId = SeedDemoDirectory::partyIdFor($seatOrdinal);
 
-        return OfficeHolding::query()->updateOrCreate(
-            ['id' => DemoDataset::id('holding', $demo->key, $constituencyId, $positionKey->value, (string) $seatIndex)],
+        /** @var OfficeHolding $holding */
+        $holding = $this->put(
+            OfficeHolding::class,
+            DemoDataset::id('holding', $demo->key, $constituencyId, $positionKey->value, (string) $seatIndex),
             [
                 'person_id' => SeedDemoDirectory::personId($demo, $personIndex),
                 'position_key' => $positionKey->value,
@@ -233,18 +288,21 @@ final class SeedDemoTenant
                 'term_label' => '2022–2027',
             ],
         );
+
+        return $holding;
     }
 
     /** A verified link from the municipality's own election record. */
     private function verify(DemoLocalLevel $demo, string $subjectId, string $subjectType): void
     {
-        TenantSourceLink::query()->updateOrCreate(
-            ['id' => DemoDataset::id('link', $demo->key, $subjectType, $subjectId)],
+        $this->put(
+            TenantSourceLink::class,
+            DemoDataset::id('link', $demo->key, $subjectType, $subjectId),
             [
                 'source_id' => DemoDataset::id('source', $demo->key, 'record'),
                 'subject_type' => $subjectType,
                 'subject_id' => $subjectId,
-                'provenance_type' => ProvenanceType::Official,
+                'provenance_type' => ProvenanceType::Official->value,
                 'verification_status' => 'verified',
                 'verified_by' => DemoDataset::id('staff', 'demo-verifier'),
                 'verified_at' => now(),
@@ -264,30 +322,32 @@ final class SeedDemoTenant
     {
         $parties = DemoDataset::parties();
 
-        TenantSourceLink::query()->updateOrCreate(
-            ['id' => DemoDataset::id('link', $demo->key, 'conflict-official', $holding->id)],
+        $this->put(
+            TenantSourceLink::class,
+            DemoDataset::id('link', $demo->key, 'conflict-official', (string) $holding->id),
             [
                 'source_id' => DemoDataset::id('source', $demo->key, 'record'),
                 'subject_type' => 'office_holding',
-                'subject_id' => $holding->id,
+                'subject_id' => (string) $holding->id,
                 'field_path' => 'party_id',
-                'provenance_type' => ProvenanceType::Official,
-                'asserted_value' => $parties[1]['en'],
+                'provenance_type' => ProvenanceType::Official->value,
+                'asserted_value' => $this->jsonValue($parties[1]['en']),
                 'verification_status' => 'verified',
                 'verified_by' => DemoDataset::id('staff', 'demo-verifier'),
                 'verified_at' => now(),
             ],
         );
 
-        TenantSourceLink::query()->updateOrCreate(
-            ['id' => DemoDataset::id('link', $demo->key, 'conflict-claim', $holding->id)],
+        $this->put(
+            TenantSourceLink::class,
+            DemoDataset::id('link', $demo->key, 'conflict-claim', (string) $holding->id),
             [
                 'source_id' => DemoDataset::id('source', $demo->key, 'claim'),
                 'subject_type' => 'office_holding',
-                'subject_id' => $holding->id,
+                'subject_id' => (string) $holding->id,
                 'field_path' => 'party_id',
-                'provenance_type' => ProvenanceType::UnverifiedClaim,
-                'asserted_value' => $parties[2]['en'],
+                'provenance_type' => ProvenanceType::UnverifiedClaim->value,
+                'asserted_value' => $this->jsonValue($parties[2]['en']),
                 'verification_status' => 'unverified',
             ],
         );
@@ -299,10 +359,11 @@ final class SeedDemoTenant
             return 0;
         }
 
-        WardOffice::query()->updateOrCreate(
-            ['id' => DemoDataset::id('ward_office', $demo->key, (string) $ward->ward_number)],
+        $this->put(
+            WardOffice::class,
+            DemoDataset::id('ward_office', $demo->key, (string) $ward->ward_number),
             [
-                'ward_id' => $ward->id,
+                'ward_id' => (string) $ward->id,
                 'address_ne' => $demo->nameNe.' वडा नं. '.$ward->ward_number.' कार्यालय (नमुना ठेगाना)',
                 'address_en' => $demo->nameEn.' Ward '.$ward->ward_number.' Office (demo address)',
                 'phone' => '025-'.str_pad((string) (580000 + $ward->ward_number), 6, '0', STR_PAD_LEFT),

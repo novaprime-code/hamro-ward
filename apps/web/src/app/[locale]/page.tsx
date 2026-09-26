@@ -26,6 +26,25 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   const t = translator(await getMessages(locale));
   const result = await fetchLocalLevels();
+  const localLevels = result.ok ? result.data : [];
+
+  /*
+   * Type labels are resolved HERE, into a plain object, rather than passed as
+   * a function for the picker to call.
+   *
+   * MunicipalityPicker is a client component. Everything crossing that
+   * boundary is serialised, and a function cannot be — React fails the whole
+   * render with "Functions cannot be passed directly to Client Components".
+   * Only the types actually present are looked up, so adding a local-level
+   * type needs no change here.
+   */
+  const typeLabels: Record<string, string> = {};
+
+  for (const level of localLevels) {
+    if (level.type !== null && !(level.type in typeLabels)) {
+      typeLabels[level.type] = t(`type.${level.type}`);
+    }
+  }
 
   return (
     <div className="space-y-6 pt-6">
@@ -44,19 +63,19 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           <StateNotice tone="neutral" title={t('error.unavailable')}>
             {t('error.unavailableHelp')}
           </StateNotice>
-        ) : result.data.length === 0 ? (
+        ) : localLevels.length === 0 ? (
           <StateNotice tone="neutral" title={t('picker.none')}>
             {t('picker.noneHelp')}
           </StateNotice>
         ) : (
           <MunicipalityPicker
-            localLevels={result.data}
+            localLevels={localLevels}
             locale={locale}
             labels={{
               search: t('picker.search'),
               wards: t('picker.wards'),
               empty: t('picker.empty'),
-              typeOf: (type) => (type === null ? '' : t(`type.${type}`)),
+              typeLabels,
             }}
           />
         )}

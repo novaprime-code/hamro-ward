@@ -6,7 +6,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use InvalidArgumentException;
 
 /*
 | TENANT — who holds which seat, which seats are vacant, and the derived view
