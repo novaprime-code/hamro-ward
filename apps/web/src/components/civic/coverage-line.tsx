@@ -21,7 +21,7 @@ export function CoverageLine({
   const confirmed = coverage.held + coverage.vacant;
 
   return (
-    <p className="text-sm text-muted">
+    <p className="text-sm text-muted-foreground">
       {label(formatNumber(confirmed, locale), formatNumber(coverage.total, locale))}
     </p>
   );

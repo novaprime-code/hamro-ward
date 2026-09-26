@@ -1,8 +1,28 @@
-import type { ReactNode } from 'react';
+import {
+  CircleCheck,
+  CircleDashed,
+  FileText,
+  MessageSquareQuote,
+  Newspaper,
+  Sparkles,
+  Users,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import type { badgeVariants } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 /**
  * The eight trust categories (project instructions §3, FR-SRC-04).
- * Icon and words always travel together: colour alone never carries the meaning.
+ *
+ * Icon and words always travel together: colour alone never carries the
+ * meaning, so the badge reads the same to someone who cannot distinguish the
+ * palette's teal from its amber (NFR-ACC-01).
+ *
+ * The categories are never collapsed. "Official" and "a claim someone made on
+ * Facebook" are different kinds of thing, and flattening them into a single
+ * "source" chip is exactly the failure this product exists to avoid.
  */
 export type ProvenanceType =
   | 'official'
@@ -14,90 +34,55 @@ export type ProvenanceType =
   | 'ai_generated_summary'
   | 'unverified_claim';
 
-const TONE: Record<ProvenanceType, string> = {
-  official: 'text-verified border-verified/35',
-  public_record: 'text-muted border-line',
-  verified_community_report: 'text-verified border-verified/35',
-  community_report: 'text-muted border-line',
-  candidate_submitted: 'text-muted border-line',
-  media_report: 'text-muted border-line',
-  ai_generated_summary: 'text-accent-ink border-accent/50',
-  unverified_claim: 'text-pending border-pending/60 border-dashed',
+type BadgeVariant = NonNullable<Parameters<typeof badgeVariants>[0]>['variant'];
+
+const PRESENTATION: Record<ProvenanceType, { icon: LucideIcon; variant: BadgeVariant }> = {
+  official: { icon: CircleCheck, variant: 'verified' },
+  verified_community_report: { icon: CircleCheck, variant: 'verified' },
+  public_record: { icon: FileText, variant: 'neutral' },
+  candidate_submitted: { icon: MessageSquareQuote, variant: 'neutral' },
+  community_report: { icon: Users, variant: 'neutral' },
+  media_report: { icon: Newspaper, variant: 'neutral' },
+  ai_generated_summary: { icon: Sparkles, variant: 'ai' },
+  unverified_claim: { icon: CircleDashed, variant: 'unverified' },
 };
-
-function Icon({ type }: { type: ProvenanceType }): ReactNode {
-  const common = { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 };
-
-  switch (type) {
-    case 'official':
-    case 'verified_community_report':
-      return (
-        <svg {...common} aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <path d="m8 12 3 3 5-6" />
-        </svg>
-      );
-    case 'public_record':
-      return (
-        <svg {...common} aria-hidden="true">
-          <path d="M7 3h7l4 4v14H7z" />
-          <path d="M14 3v5h4" />
-        </svg>
-      );
-    case 'candidate_submitted':
-      return (
-        <svg {...common} aria-hidden="true">
-          <path d="M5 5h14v10H9l-4 4z" />
-        </svg>
-      );
-    case 'media_report':
-      return (
-        <svg {...common} aria-hidden="true">
-          <path d="M4 5h13v14H4z" />
-          <path d="M17 9h3v8a2 2 0 0 1-3 2" />
-          <path d="M7 9h7M7 13h7" />
-        </svg>
-      );
-    case 'ai_generated_summary':
-      return (
-        <svg {...common} aria-hidden="true">
-          <path d="M5 8h14M5 12h9M5 16h11" />
-        </svg>
-      );
-    default:
-      return (
-        <svg {...common} strokeDasharray="3 3" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-        </svg>
-      );
-  }
-}
 
 export function ProvenanceBadge({
   type,
   label,
   onOpen,
+  className,
 }: {
   type: ProvenanceType;
   label: string;
+  /** When given, the badge opens the source sheet (HW-E04-F02). */
   onOpen?: () => void;
+  className?: string;
 }) {
-  const className =
-    `mt-2 inline-flex items-center gap-1.5 rounded-full border bg-surface-2 px-2.5 py-1 text-sm ${TONE[type]}`;
+  const { icon: Icon, variant } = PRESENTATION[type];
+
+  const content = (
+    <>
+      <Icon aria-hidden="true" />
+      {label}
+    </>
+  );
 
   if (!onOpen) {
     return (
-      <span className={className}>
-        <Icon type={type} />
-        {label}
-      </span>
+      <Badge variant={variant} className={cn('mt-2', className)}>
+        {content}
+      </Badge>
     );
   }
 
+  /* asChild so the badge keeps its own markup and the button keeps its
+     semantics — rather than a div with an onClick, which no keyboard reaches. */
   return (
-    <button type="button" onClick={onOpen} className={className} aria-haspopup="dialog">
-      <Icon type={type} />
-      {label}
-    </button>
+    <Badge variant={variant} className={cn('mt-2 cursor-pointer', className)} asChild>
+      <button type="button" onClick={onOpen} aria-haspopup="dialog">
+        {content}
+      </button>
+    </Badge>
   );
 }
