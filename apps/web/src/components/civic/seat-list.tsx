@@ -15,8 +15,8 @@ import type { Locale } from '@/i18n/config';
  *   not_verified  either the name we have, clearly marked unconfirmed, or a
  *                 notice that nothing is confirmed yet
  *
- * A seat is never omitted. Dropping the ones we know nothing about would tell a
- * citizen their ward has three representatives when it has seven, which is a
+ * A seat is never omitted. Dropping the ones we know nothing about would tell
+ * a citizen their ward has three representatives when it has seven, which is a
  * worse lie than admitting ignorance.
  *
  * Every row uses the same template whatever the party: no colour, no ordering
@@ -71,15 +71,12 @@ function Seat({
 
   if (seat.state === 'vacant') {
     return (
-      <div className="border-b border-line py-3">
-        <span className="block text-sm text-muted">{role}</span>
-        <StateNotice
-          tone="neutral"
-          title={t('state.vacant')}
-          // The reason is the point. "No candidate stood" and "resigned" are
-          // different facts about a ward, and the reserved-seat case is a real
-          // and common one (docs/02 §4.2).
-        >
+      <div className="border-b border-border py-3">
+        <span className="mb-2 block text-sm text-muted-foreground">{role}</span>
+        {/* The reason is the point. "No candidate stood" and "resigned" are
+            different facts about a ward, and the reserved-seat case is a real
+            and common one (docs/02 §4.2). */}
+        <StateNotice tone="neutral" title={t('state.vacant')}>
           {t(`vacancy.${seat.vacancy?.reason ?? 'other'}`)}
         </StateNotice>
       </div>
@@ -88,8 +85,8 @@ function Seat({
 
   if (seat.state === 'not_verified' && seat.person === null) {
     return (
-      <div className="border-b border-line py-3">
-        <span className="block text-sm text-muted">{role}</span>
+      <div className="border-b border-border py-3">
+        <span className="mb-2 block text-sm text-muted-foreground">{role}</span>
         <StateNotice tone="unverified" title={t('state.notVerified')}>
           {t('state.notVerifiedHelp')}
         </StateNotice>
@@ -111,9 +108,7 @@ function Seat({
       party={party}
       href={seat.person === null ? basePath : `${basePath}#${seat.position_key}-${seat.seat_index}`}
       provenance={seat.state === 'held' ? 'official' : 'unverified_claim'}
-      provenanceLabel={
-        seat.state === 'held' ? t('provenance.official') : t('state.notVerified')
-      }
+      provenanceLabel={seat.state === 'held' ? t('provenance.official') : t('state.notVerified')}
     />
   );
 }

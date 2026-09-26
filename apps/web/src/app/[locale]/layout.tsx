@@ -77,7 +77,7 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} data-theme={theme} className={`${anek.variable} ${noto.variable}`}>
-      <body className="min-h-dvh bg-bg text-ink">
+      <body className="min-h-dvh bg-background text-foreground">
         <BetaBanner message={t('beta.banner')} />
         <SiteHeader locale={locale} siteName={t('site.name')} switchLabel={t('locale.switch')} />
         <main className="mx-auto w-full max-w-[var(--content-width)] px-4 pb-16">{children}</main>

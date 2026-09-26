@@ -50,7 +50,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     <div className="space-y-6 pt-6">
       <header className="space-y-2">
         <h1 className="font-display text-[28px] font-bold leading-tight">{t('home.title')}</h1>
-        <p className="text-muted">{t('home.intro')}</p>
+        <p className="text-muted-foreground">{t('home.intro')}</p>
       </header>
 
       <section className="space-y-3" aria-labelledby="picker-heading">

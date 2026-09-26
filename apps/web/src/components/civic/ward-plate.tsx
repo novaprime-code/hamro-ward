@@ -3,7 +3,10 @@ import type { Locale } from '@/i18n/config';
 
 /**
  * The ward-office signboard: the one bold element on the site (docs/09 §1).
- * Ward numbers use Devanagari digits in Nepali content.
+ *
+ * Not a Card on purpose. A card is a container for content; this is a painted
+ * plate, and the square corners and inset rule are what make it read as one.
+ * Ward numbers use Devanagari digits in Nepali content (§16).
  */
 export function WardPlate({
   locale,

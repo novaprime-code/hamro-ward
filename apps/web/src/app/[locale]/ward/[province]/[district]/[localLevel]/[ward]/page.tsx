@@ -115,7 +115,7 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
           </h2>
           {/* Said plainly, because a voter fills these on the same ballot but
               they are not ward officials (docs/02 §4.1). */}
-          <p className="text-sm text-muted">
+          <p className="text-sm text-muted-foreground">
             {t('ward.localLevelSeatsHelp').replace('{place}', pick(place.name, locale))}
           </p>
           <SeatList seats={localLevelSeats} locale={locale} t={t} basePath={basePath} />
@@ -132,7 +132,7 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
             {t('ward.officeUnknownHelp')}
           </StateNotice>
         ) : (
-          <dl className="rounded-[var(--radius-control)] border border-line bg-surface p-3 text-[15px]">
+          <dl className="rounded-control border border-border bg-muted p-3 text-[15px]">
             <Detail label={t('ward.address')} value={pick(data.ward_office.address, locale)} />
             <Detail
               label={t('ward.phone')}
@@ -173,8 +173,8 @@ function Detail({
   }
 
   return (
-    <div className="border-b border-line py-2 last:border-b-0">
-      <dt className="text-sm text-muted">{label}</dt>
+    <div className="border-b border-border py-2 last:border-b-0">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="mt-0.5">{href === undefined ? value : <a className="underline" href={href}>{value}</a>}</dd>
     </div>
   );

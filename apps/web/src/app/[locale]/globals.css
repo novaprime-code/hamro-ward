@@ -1,35 +1,94 @@
 @import "tailwindcss";
 @import "../../styles/tokens.css";
 
-/* Tailwind v4 reads its theme from CSS. "inline" means the utilities resolve the
-   variable at use time, so bg-surface, text-muted and the rest follow whichever
-   palette is active — no rebuild, no duplicate class sets. */
+/* =============================================================================
+   Dark palette
+   =============================================================================
+   shadcn components carry `dark:` utilities. Those normally key off a `.dark`
+   class, but this site's palettes are chosen with data-theme, and `raat` IS the
+   dark one. Binding the variant to it keeps one mechanism instead of two: no
+   next-themes, no class toggling, no state that can disagree with the palette.
+   ========================================================================== */
+@custom-variant dark (&:is([data-theme="raat"] *));
+
+/* =============================================================================
+   Theme
+   =============================================================================
+   Tailwind v4 reads its theme from CSS. "inline" means utilities resolve the
+   variable at use time, so every colour follows whichever palette is active —
+   no rebuild, no duplicate class sets, no per-palette component code.
+
+   The names below are shadcn's. That is deliberate: every component copied
+   from the registry refers to bg-primary, text-muted-foreground, border-border
+   and so on, and mapping those onto the palette once here is what lets an
+   unmodified shadcn component render correctly in all five palettes.
+
+   src/styles/tokens.css remains the only file in the application that contains
+   a colour value.
+   ========================================================================== */
 @theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-ink: var(--text);
-  --color-muted: var(--text-muted);
-  --color-line: var(--line);
+  /* --- surfaces and text ------------------------------------------------- */
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
 
-  --color-accent: var(--accent);
-  --color-accent-ink: var(--accent-ink);
-  --color-on-accent: var(--on-accent);
-  --color-accent-wash: var(--accent-wash);
+  --color-card: var(--surface-2);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface-2);
+  --color-popover-foreground: var(--text);
 
+  /* shadcn's "muted" is a surface; "muted-foreground" is the quiet text on it.
+     Reading text-muted as a text colour is the one easy mistake here. */
+  --color-muted: var(--surface);
+  --color-muted-foreground: var(--text-muted);
+
+  --color-secondary: var(--surface);
+  --color-secondary-foreground: var(--text);
+
+  /* --- brand -------------------------------------------------------------- */
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--on-accent);
+
+  /* shadcn's "accent" is the subtle hover/active wash, NOT the brand colour.
+     The brand is --color-primary above. Mapping the wash here means hover
+     states across every registry component land on the palette's own tint. */
+  --color-accent: var(--accent-wash);
+  --color-accent-foreground: var(--accent-ink);
+
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--on-danger);
+
+  /* --- lines and focus ---------------------------------------------------- */
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--accent);
+
+  /* --- civic states: the vocabulary shadcn has no word for ---------------- */
   --color-verified: var(--state-verified);
   --color-pending: var(--state-pending);
   --color-vacant: var(--state-vacant);
-  --color-danger: var(--danger);
+  --color-plate: var(--plate-bg);
+  --color-plate-number: var(--plate-number);
 
+  /* --- type --------------------------------------------------------------- */
   --font-display: var(--font-anek), system-ui, sans-serif;
   --font-sans: var(--font-noto), system-ui, sans-serif;
+
+  /* --- radius ------------------------------------------------------------- */
+  /* shadcn components use rounded-sm/md/lg/xl; these derive from the card
+     radius so a palette or shape change still happens in one place. */
+  --radius-sm: calc(var(--radius-card) - 4px);
+  --radius-md: calc(var(--radius-card) - 2px);
+  --radius-lg: var(--radius-card);
+  --radius-xl: calc(var(--radius-card) + 4px);
 
   --radius-control: var(--radius-control);
   --radius-card: var(--radius-card);
   --radius-sheet: var(--radius-sheet);
 }
 
+/* =============================================================================
+   Base
+   ========================================================================== */
 html {
   background-color: var(--bg);
   color: var(--text);
@@ -54,6 +113,11 @@ h1, h2, h3, h4 {
   font-weight: 650;
 }
 
+/* One focus treatment for the whole site, including every shadcn component.
+   The registry's default is a coloured ring; an outline is used instead because
+   it is drawn outside the element and cannot be clipped by an ancestor's
+   overflow, which a ring can. Components therefore ship without ring classes —
+   that is a deliberate edit, not an omission (NFR-ACC-01). */
 :focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
@@ -72,6 +136,10 @@ button, a[role="button"], input[type="submit"] {
     scroll-behavior: auto !important;
   }
 }
+
+/* =============================================================================
+   The two things that are not components
+   ========================================================================== */
 
 /* The ward plate: the one loud element, a painted ward-office signboard.
    Square corners on purpose — it is a plate, not a card. */
@@ -100,7 +168,9 @@ button, a[role="button"], input[type="submit"] {
   line-height: 0.95;
 }
 
-/* A dashed edge means "we have not confirmed this yet" — a state, not an error */
+/* A dashed edge means "we have not confirmed this yet" — a state, not an error.
+   Kept as a class rather than a utility set because it is referenced by the
+   unverified Alert variant and by the seat list, and the two must not drift. */
 .state-unverified {
   border: 1px dashed var(--state-pending);
   background-color: var(--accent-wash);
