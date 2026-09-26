@@ -96,9 +96,36 @@ return new class extends Migration
             $table->uuid('merged_into_person_id')->nullable();
             $table->timestampsTz();
 
-            $table->foreign('merged_into_person_id')->references('id')->on('persons')->restrictOnDelete();
             $table->index('is_published');
             $table->index('merged_into_person_id');
+        });
+
+        /*
+         * The self-reference is added AFTER the table exists, not inside the
+         * Schema::create closure above, and that is not a style choice.
+         *
+         * Laravel appends the commands implied by fluent modifiers — the
+         * primary key from uuid('id')->primary() — when the blueprint is
+         * compiled, which is after everything the closure added. A foreign key
+         * written inside the closure is therefore emitted BEFORE the primary
+         * key it points at:
+         *
+         *   create table "persons" (…)
+         *   alter table "persons" add constraint …_foreign foreign key … references "persons" ("id")
+         *   alter table "persons" add primary key ("id")
+         *
+         * and PostgreSQL refuses the middle statement with
+         *
+         *   SQLSTATE[42830]: there is no unique constraint matching given keys
+         *   for referenced table "persons"
+         *
+         * A separate Schema::table call is a separate blueprint, compiled and
+         * executed after the create has finished, so the key is there.
+         * (The tenant admin_units replica avoids the same trap by adding its
+         * parent_id self-reference through DB::statement.)
+         */
+        Schema::table('persons', function (Blueprint $table): void {
+            $table->foreign('merged_into_person_id')->references('id')->on('persons')->restrictOnDelete();
         });
 
         DB::statement(<<<'SQL'
