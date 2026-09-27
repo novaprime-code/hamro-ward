@@ -39,6 +39,7 @@
   --state-pending: #8a6410;
   --state-vacant: #5b6470;
   --danger: #a32626;
+  --on-danger: #ffffff;
 }
 
 /* --- 2. Sal — walnut and amber, like a wooden notice board ---------------- */
@@ -62,6 +63,7 @@
   --state-pending: #96671a;
   --state-vacant: #6b5847;
   --danger: #9c3025;
+  --on-danger: #fff9ef;
 }
 
 /* --- 3. Aaba — plum, quiet and unusual ----------------------------------- */
@@ -85,6 +87,7 @@
   --state-pending: #7d5a1c;
   --state-vacant: #5f5266;
   --danger: #9c2b3f;
+  --on-danger: #fdf7fb;
 }
 
 /* --- 4. Raat — night, for phones after dark ------------------------------ */
@@ -108,6 +111,7 @@
   --state-pending: #e2b657;
   --state-vacant: #9aaebc;
   --danger: #f2857f;
+  --on-danger: #08131b;
 }
 
 /* --- 5. Kagaj — newsprint black and white, one violet -------------------- */
@@ -131,6 +135,7 @@
   --state-pending: #7a5b00;
   --state-vacant: #5a5a5a;
   --danger: #a81f1f;
+  --on-danger: #ffffff;
 }
 
 /* --- shape, space and motion: shared by every palette -------------------- */

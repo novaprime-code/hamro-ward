@@ -1,12 +1,16 @@
+import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
 import { ProvenanceBadge } from '@/components/civic/provenance-badge';
 import type { ProvenanceType } from '@/components/civic/provenance-badge';
 
 /**
- * One seat in the ward, in ballot order (FR-OFF-01). Exactly three states exist:
- * held, vacant, not yet verified — and the template is identical for everyone,
- * whatever their party (NFR-NEU-01).
+ * One seat in the ward, in ballot order (FR-OFF-01). Exactly three states
+ * exist: held, vacant, not yet verified — and the template is identical for
+ * everyone, whatever their party (NFR-NEU-01).
+ *
+ * No Card here either. A list of seven cards on a phone is seven boxes to
+ * scroll past; a ruled list is a list, and the ward is a list.
  */
 export function SeatRow({
   role,
@@ -26,15 +30,15 @@ export function SeatRow({
   return (
     <Link
       href={href}
-      className="block border-b border-line py-3 hover:bg-surface-2 focus-visible:bg-surface-2"
+      className="flex items-start gap-3 border-b border-border py-3 transition-colors hover:bg-muted focus-visible:bg-muted"
     >
-      <span className="float-right text-muted" aria-hidden="true">
-        ›
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm text-muted-foreground">{role}</span>
+        <span className="mt-0.5 block font-display text-[19px] font-semibold">{name}</span>
+        {party ? <span className="block text-sm text-muted-foreground">{party}</span> : null}
+        <ProvenanceBadge type={provenance} label={provenanceLabel} />
       </span>
-      <span className="block text-sm text-muted">{role}</span>
-      <span className="mt-0.5 block font-display text-[19px] font-semibold">{name}</span>
-      {party ? <span className="block text-sm text-muted">{party}</span> : null}
-      <ProvenanceBadge type={provenance} label={provenanceLabel} />
+      <ChevronRight className="mt-1 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
     </Link>
   );
 }

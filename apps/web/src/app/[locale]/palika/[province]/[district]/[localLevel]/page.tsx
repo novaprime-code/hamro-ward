@@ -4,9 +4,11 @@ import { notFound } from 'next/navigation';
 import { CoverageLine } from '@/components/civic/coverage-line';
 import { SeatList } from '@/components/civic/seat-list';
 import { StateNotice } from '@/components/civic/state-notice';
+import { buttonVariants } from '@/components/ui/button';
 import { formatNumber, isLocale } from '@/i18n/config';
 import { getMessages, translator } from '@/i18n/messages';
 import { fetchLocalLevel, pick } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 type PageParams = {
   locale: string;
@@ -69,13 +71,13 @@ export default async function LocalLevelPage({ params }: { params: Promise<PageP
   return (
     <div className="space-y-6 pt-6">
       <header className="space-y-1">
-        <p className="text-sm text-muted">
+        <p className="text-sm text-muted-foreground">
           {pick(place.province, locale)} › {pick(place.district, locale)}
         </p>
         <h1 className="font-display text-[28px] font-bold leading-tight">
           {pick(place.name, locale)}
         </h1>
-        <p className="text-sm text-muted">
+        <p className="text-sm text-muted-foreground">
           {place.type === null ? null : t(`type.${place.type}`)} ·{' '}
           {formatNumber(place.wards.length, locale)} {t('picker.wards')}
         </p>
@@ -96,7 +98,10 @@ export default async function LocalLevelPage({ params }: { params: Promise<PageP
               <li key={ward.number}>
                 <Link
                   href={`/${locale}/ward/${place.slug_path}/${ward.number}`}
-                  className="flex h-14 items-center justify-center rounded-[var(--radius-control)] border border-line bg-surface font-display text-[19px] font-semibold hover:bg-surface-2 focus-visible:bg-surface-2"
+                  className={cn(
+                    buttonVariants({ variant: 'outline' }),
+                    'h-14 w-full font-display text-[19px]',
+                  )}
                 >
                   {formatNumber(ward.number, locale)}
                 </Link>

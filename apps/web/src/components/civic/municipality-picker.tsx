@@ -1,12 +1,14 @@
 'use client';
 
+import { ChevronRight, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import { pick } from '@/lib/api';
-import type { LocalLevelSummary } from '@/lib/api';
+import { Input } from '@/components/ui/input';
 import { formatNumber } from '@/i18n/config';
 import type { Locale } from '@/i18n/config';
+import { pick } from '@/lib/api';
+import type { LocalLevelSummary } from '@/lib/api';
 
 /**
  * Choosing a municipality (FR-GEO-01, FR-GEO-07).
@@ -15,13 +17,13 @@ import type { Locale } from '@/i18n/config';
  * With 753 local levels at most, that is a small payload once, rather than a
  * request per keystroke over a connection that may not have one to spare (§17).
  *
- * Matching is accent-blind across both scripts and the slug, so a citizen who
- * knows the name in Devanagari, in romanised form, or only from the URL all
- * reach the same place.
+ * Matching runs across both scripts and the slug, so a citizen who knows the
+ * name in Devanagari, in romanised form, or only from the URL all reach the
+ * same place.
  *
- * Every label arrives as a finished string. This is a client component, so
- * anything it receives is serialised across the boundary — a function would
- * fail the render, not degrade.
+ * Every label arrives as a finished string. This is the app's only client
+ * component, so anything it receives is serialised across the boundary — a
+ * function would fail the render, not degrade.
  */
 export function MunicipalityPicker({
   localLevels,
@@ -55,40 +57,44 @@ export function MunicipalityPicker({
 
   return (
     <div>
-      <label className="block">
+      <label className="relative block">
         <span className="sr-only">{labels.search}</span>
-        <input
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <Input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={labels.search}
-          className="w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 py-3 text-base"
+          className="pl-10"
         />
       </label>
 
       {matches.length === 0 ? (
-        <p className="mt-4 text-muted">{labels.empty}</p>
+        <p className="mt-4 text-muted-foreground">{labels.empty}</p>
       ) : (
         <ul className="mt-4">
           {matches.map((level) => (
             <li key={level.slug_path}>
               <Link
                 href={`/${locale}/palika/${level.slug_path}`}
-                className="block border-b border-line py-3 hover:bg-surface-2 focus-visible:bg-surface-2"
+                className="flex items-center gap-3 border-b border-border py-3 transition-colors hover:bg-muted focus-visible:bg-muted"
               >
-                <span className="float-right text-muted" aria-hidden="true">
-                  ›
+                <span className="min-w-0 flex-1">
+                  <span className="block font-display text-[19px] font-semibold">
+                    {pick(level.name, locale)}
+                  </span>
+                  <span className="block text-sm text-muted-foreground">
+                    {pick(level.district, locale)} · {pick(level.province, locale)} ·{' '}
+                    {formatNumber(level.wards, locale)} {labels.wards}
+                  </span>
+                  <span className="block text-sm text-muted-foreground">
+                    {level.type ? (labels.typeLabels[level.type] ?? '') : ''}
+                  </span>
                 </span>
-                <span className="block font-display text-[19px] font-semibold">
-                  {pick(level.name, locale)}
-                </span>
-                <span className="block text-sm text-muted">
-                  {pick(level.district, locale)} · {pick(level.province, locale)} ·{' '}
-                  {formatNumber(level.wards, locale)} {labels.wards}
-                </span>
-                <span className="block text-sm text-muted">
-                  {level.type ? (labels.typeLabels[level.type] ?? '') : ''}
-                </span>
+                <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
               </Link>
             </li>
           ))}
