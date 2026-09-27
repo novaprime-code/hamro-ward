@@ -1,0 +1,36 @@
+# syntax=docker/dockerfile:1
+#
+# Development PHP container.
+#
+# Same vendor and major version as the production image, so "works locally"
+# means something. Two additions the base image does not carry:
+#
+#   1. intl and gd. serversideup ships pdo_pgsql, redis, zip, pcntl and
+#      mbstring, but not these two. Keep this line in step with whatever
+#      apps/api/Dockerfile installs:
+#        grep -n install-php-extensions apps/api/Dockerfile
+#
+#   2. www-data remapped to your host user. The base runs as www-data (UID 33
+#      on Debian) and there is no PUID/PGID support. With the repository bind
+#      mounted, every file the container writes — vendor/, storage/logs,
+#      bootstrap/cache — would land owned by 33 and your editor could not save
+#      over them. Remapping at build time is more reliable than compose's
+#      `user:` override, which bypasses the image's own entrypoint assumptions.
+
+ARG PHP_BASE=serversideup/php:8.3-cli
+FROM ${PHP_BASE}
+
+ARG HW_UID=1000
+ARG HW_GID=1000
+
+USER root
+
+RUN install-php-extensions intl gd
+
+# groupmod first: changing the user's primary GID needs the group to exist.
+RUN if [ "$(id -u www-data)" != "${HW_UID}" ]; then \
+        groupmod -o -g "${HW_GID}" www-data && \
+        usermod  -o -u "${HW_UID}" -g "${HW_GID}" www-data; \
+    fi
+
+USER www-data

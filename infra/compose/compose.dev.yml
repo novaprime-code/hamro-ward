@@ -32,5 +32,47 @@ services:
     environment:
       MP_MAX_MESSAGES: 500
 
+  # PHP runs in a container rather than on the host. Ubuntu 26.04 ships PHP 8.5
+  # and production runs 8.3; a dev environment a minor version ahead of the
+  # server is how "works locally" happens. This is also why Sail was rejected —
+  # Sail would have introduced a *different* image from production, which is
+  # the same problem in nicer packaging.
+  app:
+    build:
+      context: ../docker/php
+      dockerfile: Dockerfile.dev
+      args:
+        # Align with the FROM line in apps/api/Dockerfile.
+        PHP_BASE: ${HW_PHP_BASE:-serversideup/php:8.3-cli}
+        HW_UID: ${HW_UID:-1000}
+        HW_GID: ${HW_GID:-1000}
+    image: hamro-ward-dev-app:local
+    container_name: hw-app
+    working_dir: /workspace/apps/api
+    volumes:
+      # The whole repository, not just apps/api. A shell in here is also the
+      # quickest place to run something against infra/ or tools/.
+      - ../../:/workspace
+    environment:
+      # Laravel's Dotenv is immutable — it will not overwrite variables that
+      # already exist in the environment. So these win over .env, and .env can
+      # keep host-shaped values for anyone not using the container.
+      DB_HOST: db
+      DB_PORT: 5432
+      TENANT_DB_HOST: db
+      TENANT_DB_PORT: 5432
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    # No restart policy on purpose: on a fresh clone vendor/ does not exist yet
+    # and serve exits. A crash loop hides that; a stopped container shows it.
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+    stdin_open: true
+    tty: true
+
 volumes:
   hw-db-data:
