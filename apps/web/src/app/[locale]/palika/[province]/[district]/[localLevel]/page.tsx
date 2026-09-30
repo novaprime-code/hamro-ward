@@ -8,6 +8,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { formatNumber, isLocale } from '@/i18n/config';
 import { getMessages, translator } from '@/i18n/messages';
 import { fetchLocalLevel, pick } from '@/lib/api';
+import { shareMetadata } from '@/lib/share-metadata';
 import { cn } from '@/lib/utils';
 
 type PageParams = {
@@ -21,15 +22,31 @@ export const revalidate = 120;
 
 export async function generateMetadata({ params }: { params: Promise<PageParams> }) {
   const { locale, province, district, localLevel } = await params;
+
+  if (!isLocale(locale)) {
+    return {};
+  }
+
   const result = await fetchLocalLevel(`${province}/${district}/${localLevel}`);
 
   if (!result.ok) {
     return {};
   }
 
+  const t = translator(await getMessages(locale));
+  const title = pick(result.data.name, locale);
+  const path = `/${locale}/palika/${result.data.slug_path}`;
+  const description = t('share.localLevelDescription', {
+    place: title,
+    district: pick(result.data.district, locale),
+    wards: formatNumber(result.data.wards.length, locale),
+  });
+
   return {
-    title: pick(result.data.name, locale),
-    alternates: { canonical: `/${locale}/palika/${result.data.slug_path}` },
+    title,
+    description,
+    alternates: { canonical: path },
+    ...shareMetadata({ locale, title, description, path, siteName: t('site.name') }),
   };
 }
 
@@ -67,34 +84,23 @@ export default async function LocalLevelPage({ params }: { params: Promise<PageP
   }
 
   const place = result.data;
-  const name = pick(place.name, locale);
-
-  /*
-   * A local level's name already ends in its type in both languages, so
-   * "Koshara Sub-Metropolitan City · Sub-metropolitan city" says the same word
-   * twice. The type is printed only when the name does not already carry it,
-   * which keeps it useful for an imported name that breaks the convention.
-   * Case-folded: the labels are sentence case, the names title case.
-   */
-  const typeLabel = place.type === null ? '' : t(`type.${place.type}`);
-  const subtitle = [
-    typeLabel !== '' && !name.toLowerCase().includes(typeLabel.toLowerCase()) ? typeLabel : null,
-    `${formatNumber(place.wards.length, locale)} ${t('picker.wards')}`,
-  ]
-    .filter((part): part is string => part !== null)
-    .join(' · ');
 
   return (
-    <div className="space-y-8 pt-6">
+    <div className="space-y-6 pt-6">
       <header className="space-y-1">
         <p className="text-sm text-muted-foreground">
           {pick(place.province, locale)} › {pick(place.district, locale)}
         </p>
-        <h1 className="font-display text-[28px] font-bold leading-tight">{name}</h1>
-        <p className="text-sm text-muted-foreground">{subtitle}</p>
+        <h1 className="font-display text-[28px] font-bold leading-tight">
+          {pick(place.name, locale)}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {place.type === null ? null : t(`type.${place.type}`)} ·{' '}
+          {formatNumber(place.wards.length, locale)} {t('picker.wards')}
+        </p>
       </header>
 
-      <section className="space-y-4" aria-labelledby="wards-heading">
+      <section className="space-y-3" aria-labelledby="wards-heading">
         <h2 id="wards-heading" className="font-display text-[21px] font-semibold">
           {t('localLevel.chooseWard')}
         </h2>
@@ -104,7 +110,7 @@ export default async function LocalLevelPage({ params }: { params: Promise<PageP
             {t('localLevel.noWardsHelp')}
           </StateNotice>
         ) : (
-          <ul className="grid grid-cols-4 gap-3 sm:grid-cols-6">
+          <ul className="grid grid-cols-4 gap-2 sm:grid-cols-6">
             {place.wards.map((ward) => (
               <li key={ward.number}>
                 <Link
@@ -122,7 +128,7 @@ export default async function LocalLevelPage({ params }: { params: Promise<PageP
         )}
       </section>
 
-      <section className="space-y-3" aria-labelledby="leadership-heading">
+      <section className="space-y-2" aria-labelledby="leadership-heading">
         <h2 id="leadership-heading" className="font-display text-[21px] font-semibold">
           {t('localLevel.leadership')}
         </h2>
