@@ -24,7 +24,7 @@ final class DropDemoCommand extends Command
     {
         $this->components->warn('This drops the four demonstration tenant databases. It cannot be undone.');
 
-        if (! $this->option('force') && ! $this->confirm('Drop demonstration data?', false)) {
+        if (!$this->option('force') && !$this->confirm('Drop demonstration data?', false)) {
             $this->components->warn('Nothing was dropped.');
 
             return self::SUCCESS;

@@ -47,7 +47,7 @@ final class AdminUnitAlias extends Model
 
     protected static function booted(): void
     {
-        static::saving(function (AdminUnitAlias $alias): void {
+        self::saving(function (AdminUnitAlias $alias): void {
             $alias->normalized = NameNormalizer::normalize($alias->alias);
         });
     }

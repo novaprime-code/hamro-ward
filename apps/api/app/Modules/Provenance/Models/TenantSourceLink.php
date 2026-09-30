@@ -70,7 +70,7 @@ final class TenantSourceLink extends BaseSourceLink
         return Source::query()->find($this->source_id);
     }
 
-    public function resolveSource(): BaseSource|null
+    public function resolveSource(): ?BaseSource
     {
         return $this->source_scope === SourceScope::Central
             ? $this->centralSource()

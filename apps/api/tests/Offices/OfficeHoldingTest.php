@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Geography\Enums\LocalLevelType;
 use App\Modules\Offices\Actions\EndOfficeHolding;
 use App\Modules\Offices\Actions\RecordOfficeHolding;
 use App\Modules\Offices\Actions\RecordVacancy;
@@ -20,6 +21,7 @@ use Database\Seeders\PositionSeeder;
 use Database\Seeders\SourceTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
@@ -57,7 +59,7 @@ it('refuses to seat somebody who is not in the central directory', function (): 
             [$wardId] = tenantSeatContext();
 
             expect(fn () => app(RecordOfficeHolding::class)->handle(
-                personId: (string) Illuminate\Support\Str::uuid(),
+                personId: (string) Str::uuid(),
                 positionKey: PositionKey::WardChair->value,
                 constituencyId: $wardId,
                 startDate: Carbon::parse('2022-05-30'),
@@ -216,7 +218,7 @@ it('refuses a mayor in a rural municipality', function (): void {
                 'start_date' => '2022-05-30',
             ]));
         });
-    }, tenantWithPublishedWards(2, App\Modules\Geography\Enums\LocalLevelType::RuralMunicipality));
+    }, tenantWithPublishedWards(2, LocalLevelType::RuralMunicipality));
 });
 
 it('will not let a seat be held and vacant at the same time', function (): void {

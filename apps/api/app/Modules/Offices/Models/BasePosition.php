@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Offices\Models;
 
+use App\Modules\Geography\Casts\PostgresTextArray;
 use App\Modules\Offices\Enums\AppointmentType;
 use App\Modules\Offices\Enums\ElectionMethod;
 use App\Modules\Offices\Enums\GoverningBody;
 use App\Modules\Offices\Enums\PositionKey;
 use App\Modules\Offices\Enums\SeatCategory;
-use App\Modules\Geography\Casts\PostgresTextArray;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 

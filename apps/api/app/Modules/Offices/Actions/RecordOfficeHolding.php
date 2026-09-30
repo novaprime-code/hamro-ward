@@ -49,7 +49,7 @@ final class RecordOfficeHolding
             $this->assertPartyExists($partyId);
         }
 
-        if (! TenantPosition::query()->whereKey($positionKey)->exists()) {
+        if (!TenantPosition::query()->whereKey($positionKey)->exists()) {
             throw OfficesException::unknownPosition($positionKey);
         }
 
@@ -94,7 +94,7 @@ final class RecordOfficeHolding
 
     private function assertPartyExists(string $partyId): void
     {
-        if (! Party::query()->whereKey($partyId)->exists()) {
+        if (!Party::query()->whereKey($partyId)->exists()) {
             throw OfficesException::unknownParty($partyId);
         }
     }

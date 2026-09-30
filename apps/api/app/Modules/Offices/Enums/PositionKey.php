@@ -33,7 +33,7 @@ enum PositionKey: string
     /** The seven positions a voter fills directly (docs/02 §4.1). */
     public function isDirectlyElected(): bool
     {
-        return ! in_array($this, [
+        return !in_array($this, [
             self::ExecutiveMemberWoman,
             self::ExecutiveMemberDalitMinority,
         ], true);

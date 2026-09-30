@@ -13,9 +13,10 @@ use App\Modules\Provenance\Models\TenantSourceType;
 use App\Modules\Tenancy\Models\Tenant;
 use App\Modules\Tenancy\TenantManager;
 use Database\Seeders\SourceTypeSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
@@ -81,7 +82,7 @@ it('refuses a local link to a source that is not in this tenant', function (): v
                 'subject_type' => 'office_holding',
                 'subject_id' => (string) Str::uuid(),
                 'provenance_type' => ProvenanceType::Official,
-            ]))->toThrow(Illuminate\Database\QueryException::class);
+            ]))->toThrow(QueryException::class);
         });
     });
 });
@@ -123,7 +124,7 @@ it('only accepts tenant subject types in a tenant database', function (): void {
                 'subject_type' => 'admin_unit', // central subject
                 'subject_id' => (string) Str::uuid(),
                 'provenance_type' => ProvenanceType::Official,
-            ]))->toThrow(Illuminate\Database\QueryException::class);
+            ]))->toThrow(QueryException::class);
         });
     });
 });

@@ -13,6 +13,7 @@ use App\Modules\Offices\Enums\VacancyReason;
 use App\Modules\Offices\Models\Party;
 use App\Modules\Offices\Models\Person;
 use Illuminate\Database\DatabaseManager;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use stdClass;
@@ -47,7 +48,7 @@ final class CurrentSeatsQuery
                 ->orderByRaw('ballot_order NULLS LAST')
                 ->orderBy('position_key')
                 ->orderBy('seat_index')
-                ->get()
+                ->get(),
         );
     }
 
@@ -68,7 +69,7 @@ final class CurrentSeatsQuery
                 ->orderByRaw('ballot_order NULLS LAST')
                 ->orderBy('position_key')
                 ->orderBy('seat_index')
-                ->get()
+                ->get(),
         );
     }
 
@@ -88,7 +89,7 @@ final class CurrentSeatsQuery
                 ->orderByRaw('ballot_order NULLS LAST')
                 ->orderBy('position_key')
                 ->orderBy('seat_index')
-                ->get()
+                ->get(),
         );
     }
 
@@ -118,7 +119,7 @@ final class CurrentSeatsQuery
         ];
     }
 
-    private function view(): \Illuminate\Database\Query\Builder
+    private function view(): Builder
     {
         return $this->db
             ->connection((string) config('tenancy.tenant_connection'))

@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Enums\LocalLevelType;
 use App\Modules\Geography\Models\AdminUnit;
+use App\Modules\Tenancy\Models\Tenant;
+use Database\Factories\AdminUnitFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -115,7 +117,7 @@ it('keeps current units under current parents', function (): void {
 });
 
 it('allows only one current root country', function (): void {
-    $country = Database\Factories\AdminUnitFactory::country();
+    $country = AdminUnitFactory::country();
 
     expect($country->level)->toBe(AdminLevel::Country);
 
@@ -130,9 +132,9 @@ it('allows only one current root country', function (): void {
 it('only lets a tenant point at a local level', function (): void {
     $ward = AdminUnit::factory()->ward()->create();
 
-    expectRejectedByDatabase(fn () => App\Modules\Tenancy\Models\Tenant::factory()->forLocalLevel($ward)->create());
+    expectRejectedByDatabase(fn () => Tenant::factory()->forLocalLevel($ward)->create());
 
-    $tenant = App\Modules\Tenancy\Models\Tenant::factory()->create();
+    $tenant = Tenant::factory()->create();
 
     expect(AdminUnit::query()->findOrFail($tenant->admin_unit_id)->level)->toBe(AdminLevel::LocalLevel);
 });

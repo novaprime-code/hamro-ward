@@ -8,6 +8,7 @@ use App\Modules\Tenancy\Actions\SyncTenantReferenceData;
 use App\Modules\Tenancy\Enums\TenantStatus;
 use App\Modules\Tenancy\Models\Tenant;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Throwable;
 
 /**
@@ -73,8 +74,8 @@ final class SyncReferenceCommand extends Command
         return self::SUCCESS;
     }
 
-    /** @return \Illuminate\Support\Collection<int, Tenant> */
-    private function tenants(): \Illuminate\Support\Collection
+    /** @return Collection<int, Tenant> */
+    private function tenants(): Collection
     {
         $query = Tenant::query()->orderBy('tenant_key');
 
@@ -82,7 +83,7 @@ final class SyncReferenceCommand extends Command
             $query->where('tenant_key', $key);
         }
 
-        if (! $this->option('include-inactive')) {
+        if (!$this->option('include-inactive')) {
             $query->where('status', TenantStatus::Active->value);
         }
 
