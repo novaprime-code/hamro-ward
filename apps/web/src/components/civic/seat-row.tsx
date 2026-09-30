@@ -3,18 +3,20 @@ import Link from 'next/link';
 
 import { ProvenanceBadge } from '@/components/civic/provenance-badge';
 import type { ProvenanceType } from '@/components/civic/provenance-badge';
-import { Card, CardContent } from '@/components/ui/card';
 
 /**
- * One seat in the ward, in ballot order (FR-OFF-01).
+ * One seat in the ward, in ballot order (FR-OFF-01). Exactly three states
+ * exist: held, vacant, not yet verified — and the template is identical for
+ * everyone, whatever their party (NFR-NEU-01).
  *
- * The template is identical for everyone, whatever their party: same card,
- * same order of information, same weight (NFR-NEU-01, NFR-NEU-02). A reader
- * should not be able to tell from the styling which party someone belongs to.
+ * No Card here either. A list of seven cards on a phone is seven boxes to
+ * scroll past; a ruled list is a list, and the ward is a list.
  *
- * The whole card is the link rather than the name alone — a 44px-plus target
- * on a phone, and one focus outline instead of a ring around a word inside a
- * box (NFR-ACC-01).
+ * The row holds TWO destinations, which is why it is no longer a single link
+ * wrapping everything: the name goes to the person, and the badge goes to the
+ * sources. An anchor inside an anchor is invalid HTML — browsers recover from
+ * it by dropping the inner one, which is exactly the link the badge needs — so
+ * they are siblings, each its own tap target.
  */
 export function SeatRow({
   role,
@@ -23,27 +25,45 @@ export function SeatRow({
   href,
   provenance,
   provenanceLabel,
+  evidenceHref,
 }: {
   role: string;
   name: string;
   party?: string;
-  href: string;
+  /** The person, when there is one to link to; null leaves the name as text. */
+  href: string | null;
   provenance: ProvenanceType;
   provenanceLabel: string;
+  /** The sources page for this seat, when a record exists to have sources. */
+  evidenceHref?: string;
 }) {
+  const body = (
+    <>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm text-muted-foreground">{role}</span>
+        <span className="mt-0.5 block font-display text-[19px] font-semibold">{name}</span>
+        {party ? <span className="block text-sm text-muted-foreground">{party}</span> : null}
+      </span>
+      {href === null ? null : (
+        <ChevronRight className="mt-1 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      )}
+    </>
+  );
+
   return (
-    <Card asChild className="transition-colors hover:bg-accent focus-visible:bg-accent">
-      <Link href={href}>
-        <CardContent className="flex items-start gap-3">
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm text-muted-foreground">{role}</span>
-            <span className="mt-1 block font-display text-[19px] font-semibold leading-snug">{name}</span>
-            {party ? <span className="mt-0.5 block text-sm text-muted-foreground">{party}</span> : null}
-            <ProvenanceBadge type={provenance} label={provenanceLabel} />
-          </span>
-          <ChevronRight className="mt-1 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-        </CardContent>
-      </Link>
-    </Card>
+    <div className="border-b border-border py-3">
+      {href === null ? (
+        <div className="flex items-start gap-3">{body}</div>
+      ) : (
+        <Link
+          href={href}
+          className="-mx-2 flex items-start gap-3 rounded-control px-2 py-1 transition-colors hover:bg-muted focus-visible:bg-muted"
+        >
+          {body}
+        </Link>
+      )}
+
+      <ProvenanceBadge type={provenance} label={provenanceLabel} href={evidenceHref} />
+    </div>
   );
 }
