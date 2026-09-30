@@ -28,7 +28,7 @@ it('declares exactly one database connection trait on every module model', funct
     foreach ($files as $file) {
         $class = 'App\\Modules\\'.str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname());
 
-        if (! class_exists($class) || ! is_subclass_of($class, Model::class)) {
+        if (!class_exists($class) || !is_subclass_of($class, Model::class)) {
             continue;
         }
 

@@ -5,10 +5,10 @@ import { CoverageLine } from '@/components/civic/coverage-line';
 import { SeatList } from '@/components/civic/seat-list';
 import { StateNotice } from '@/components/civic/state-notice';
 import { WardPlate } from '@/components/civic/ward-plate';
-import { Card, CardContent } from '@/components/ui/card';
-import { isLocale } from '@/i18n/config';
+import { isLocale, formatNumber } from '@/i18n/config';
 import { getMessages, translator } from '@/i18n/messages';
 import { fetchWard, pick } from '@/lib/api';
+import { shareMetadata } from '@/lib/share-metadata';
 
 type PageParams = {
   locale: string;
@@ -22,19 +22,46 @@ export const revalidate = 60;
 
 export async function generateMetadata({ params }: { params: Promise<PageParams> }) {
   const { locale, province, district, localLevel, ward } = await params;
+
+  if (!isLocale(locale)) {
+    return {};
+  }
+
   const result = await fetchWard(`${province}/${district}/${localLevel}`, Number(ward));
 
   if (!result.ok) {
     return {};
   }
 
+  const t = translator(await getMessages(locale));
   const place = pick(result.data.local_level.name, locale);
+  const wardName = pick(result.data.name, locale);
+  const title = `${wardName} · ${place}`;
+  const path = `/${locale}/ward/${province}/${district}/${localLevel}/${ward}`;
+
+  /*
+   * The description is what a reader sees under the card in a chat app, and
+   * what a search engine shows. It states coverage rather than teasing: the
+   * page's honest claim is that it knows some of this ward's seats and not
+   * others, and the preview must not promise more than the page delivers
+   * (§7, §18).
+   */
+  const { held, total } = result.data.coverage;
+  const description =
+    total > 0
+      ? t('share.wardDescription', {
+          ward: wardName,
+          place,
+          held: formatNumber(held, locale),
+          total: formatNumber(total, locale),
+        })
+      : `${wardName}, ${place}`;
 
   return {
-    title: `${pick(result.data.name, locale)} · ${place}`,
-    alternates: {
-      canonical: `/${locale}/ward/${province}/${district}/${localLevel}/${ward}`,
-    },
+    title,
+    description,
+    alternates: { canonical: path },
+    ...shareMetadata({ locale, title, description, path, siteName: t('site.name') }),
   };
 }
 
@@ -89,7 +116,7 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
   const localLevelSeats = data.seats.filter((seat) => seat.constituency_level === 'local_level');
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <WardPlate
         locale={locale}
         wardNumber={data.ward_number}
@@ -97,7 +124,7 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
         place={`${pick(place.name, locale)} · ${pick(place.district, locale)} · ${pick(place.province, locale)}`}
       />
 
-      <section className="space-y-3" aria-labelledby="ward-seats-heading">
+      <section className="space-y-2" aria-labelledby="ward-seats-heading">
         <h2 id="ward-seats-heading" className="font-display text-[21px] font-semibold">
           {t('ward.representatives')}
         </h2>
@@ -110,7 +137,7 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
       </section>
 
       {localLevelSeats.length === 0 ? null : (
-        <section className="space-y-3" aria-labelledby="local-level-seats-heading">
+        <section className="space-y-2" aria-labelledby="local-level-seats-heading">
           <h2 id="local-level-seats-heading" className="font-display text-[21px] font-semibold">
             {t('ward.localLevelSeats')}
           </h2>
@@ -123,7 +150,7 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
         </section>
       )}
 
-      <section className="space-y-3" aria-labelledby="ward-office-heading">
+      <section className="space-y-2" aria-labelledby="ward-office-heading">
         <h2 id="ward-office-heading" className="font-display text-[21px] font-semibold">
           {t('ward.office')}
         </h2>
@@ -133,24 +160,20 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
             {t('ward.officeUnknownHelp')}
           </StateNotice>
         ) : (
-          <Card>
-            <CardContent className="text-[15px]">
-              <dl>
-                <Detail label={t('ward.address')} value={pick(data.ward_office.address, locale)} />
-                <Detail
-                  label={t('ward.phone')}
-                  value={data.ward_office.phone}
-                  href={data.ward_office.phone === null ? undefined : `tel:${data.ward_office.phone}`}
-                />
-                <Detail
-                  label={t('ward.email')}
-                  value={data.ward_office.email}
-                  href={data.ward_office.email === null ? undefined : `mailto:${data.ward_office.email}`}
-                />
-                <Detail label={t('ward.hours')} value={pick(data.ward_office.office_hours, locale)} />
-              </dl>
-            </CardContent>
-          </Card>
+          <dl className="rounded-control border border-border bg-muted p-3 text-[15px]">
+            <Detail label={t('ward.address')} value={pick(data.ward_office.address, locale)} />
+            <Detail
+              label={t('ward.phone')}
+              value={data.ward_office.phone}
+              href={data.ward_office.phone === null ? undefined : `tel:${data.ward_office.phone}`}
+            />
+            <Detail
+              label={t('ward.email')}
+              value={data.ward_office.email}
+              href={data.ward_office.email === null ? undefined : `mailto:${data.ward_office.email}`}
+            />
+            <Detail label={t('ward.hours')} value={pick(data.ward_office.office_hours, locale)} />
+          </dl>
         )}
       </section>
 
@@ -178,7 +201,7 @@ function Detail({
   }
 
   return (
-    <div className="border-b border-border py-3 first:pt-0 last:border-b-0 last:pb-0">
+    <div className="border-b border-border py-2 last:border-b-0">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="mt-0.5">{href === undefined ? value : <a className="underline" href={href}>{value}</a>}</dd>
     </div>

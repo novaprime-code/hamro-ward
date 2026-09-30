@@ -34,7 +34,7 @@ final class TenantManager
 
     public function initialize(Tenant $tenant, bool $allowInactive = false): void
     {
-        if (! $allowInactive && ! $tenant->isActive()) {
+        if (!$allowInactive && !$tenant->isActive()) {
             throw TenancyException::inactive($tenant);
         }
 

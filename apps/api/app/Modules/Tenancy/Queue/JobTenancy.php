@@ -51,7 +51,7 @@ final class JobTenancy
 
         $tenant = Tenant::query()->find($tenantId);
 
-        if (! $tenant instanceof Tenant) {
+        if (!$tenant instanceof Tenant) {
             throw TenancyException::unknownTenant((string) $tenantId);
         }
 

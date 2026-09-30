@@ -23,7 +23,7 @@ final class OfficesException extends RuntimeException
     public static function mergedPerson(string $personId, string $keptPersonId): self
     {
         return new self(
-            "Person {$personId} was merged into {$keptPersonId}; record the holding against the kept person."
+            "Person {$personId} was merged into {$keptPersonId}; record the holding against the kept person.",
         );
     }
 
@@ -40,14 +40,14 @@ final class OfficesException extends RuntimeException
     public static function unknownPosition(string $positionKey): self
     {
         return new self(
-            "Position {$positionKey} is not in this tenant's catalogue; run hw:tenant:sync-reference first."
+            "Position {$positionKey} is not in this tenant's catalogue; run hw:tenant:sync-reference first.",
         );
     }
 
     public static function seatAlreadyHeld(string $positionKey, int $seatIndex): self
     {
         return new self(
-            "Seat {$seatIndex} of {$positionKey} already has a holder over part of that period."
+            "Seat {$seatIndex} of {$positionKey} already has a holder over part of that period.",
         );
     }
 

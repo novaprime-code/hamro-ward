@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Geography\Actions\PublishAdminUnit;
 use App\Modules\Geography\Exceptions\GeographyException;
 use App\Modules\Geography\Models\AdminUnit;
+use Database\Factories\AdminUnitFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -54,7 +55,7 @@ it('refuses to publish below an unpublished ancestor and names it', function ():
 });
 
 it('records when a unit was published', function (): void {
-    $country = Database\Factories\AdminUnitFactory::country();
+    $country = AdminUnitFactory::country();
 
     $published = app(PublishAdminUnit::class)->publish($country);
 

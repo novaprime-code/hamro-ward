@@ -1,6 +1,13 @@
 <?php
 
 declare(strict_types=1);
+use App\Modules\Demo\Providers\DemoServiceProvider;
+use App\Modules\Offices\Providers\OfficesServiceProvider;
+use App\Modules\Provenance\Providers\ProvenanceServiceProvider;
+use App\Modules\Support\Providers\SecurityServiceProvider;
+use App\Modules\Tenancy\Providers\TenancyConsoleServiceProvider;
+use App\Modules\Tenancy\Providers\TenancyServiceProvider;
+use App\Providers\AppServiceProvider;
 
 /*
 | Order matters twice here:
@@ -16,11 +23,11 @@ declare(strict_types=1);
 | completely (docs/13 §6).
 */
 return [
-    App\Providers\AppServiceProvider::class,
-    App\Modules\Support\Providers\SecurityServiceProvider::class,
-    App\Modules\Tenancy\Providers\TenancyServiceProvider::class,
-    App\Modules\Tenancy\Providers\TenancyConsoleServiceProvider::class,
-    App\Modules\Provenance\Providers\ProvenanceServiceProvider::class,
-    App\Modules\Offices\Providers\OfficesServiceProvider::class,
-    App\Modules\Demo\Providers\DemoServiceProvider::class,
+    AppServiceProvider::class,
+    SecurityServiceProvider::class,
+    TenancyServiceProvider::class,
+    TenancyConsoleServiceProvider::class,
+    ProvenanceServiceProvider::class,
+    OfficesServiceProvider::class,
+    DemoServiceProvider::class,
 ];

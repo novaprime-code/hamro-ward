@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Provenance\Enums\ProvenanceType;
 use App\Modules\Provenance\Enums\SourceTypeKey;
 use App\Modules\Provenance\Enums\VerificationStatus;
 use App\Modules\Provenance\Models\Source;
 use App\Modules\Provenance\Models\SourceLink;
 use App\Modules\Provenance\Models\SourceType;
-use App\Modules\Geography\Models\AdminUnit;
 use Database\Seeders\SourceTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;

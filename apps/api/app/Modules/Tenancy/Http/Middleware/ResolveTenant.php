@@ -52,7 +52,7 @@ final class ResolveTenant
             throw new NotFoundHttpException('That municipality is not on Hamro Ward yet.');
         }
 
-        if (! $tenant->isActive()) {
+        if (!$tenant->isActive()) {
             throw new ServiceUnavailableHttpException(
                 300,
                 'This municipality is temporarily unavailable while its data is being updated.',

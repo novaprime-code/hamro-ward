@@ -79,14 +79,14 @@ final class CreateTenant
             );
         }
 
-        if (! $localLevel->isCurrent()) {
+        if (!$localLevel->isCurrent()) {
             throw ReferenceDataException::misconfiguredTenant(
                 $localLevel->slug,
                 'the local level was closed on '.(string) $localLevel->valid_to?->toDateString(),
             );
         }
 
-        if (! $localLevel->is_published) {
+        if (!$localLevel->is_published) {
             throw ReferenceDataException::misconfiguredTenant(
                 $localLevel->slug,
                 'publish the local level and its ancestors first, or its wards will replicate as invisible',

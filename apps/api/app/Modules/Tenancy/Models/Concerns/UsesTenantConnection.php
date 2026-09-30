@@ -16,7 +16,7 @@ trait UsesTenantConnection
 {
     public function getConnectionName(): string
     {
-        if (! app(TenantManager::class)->initialized()) {
+        if (!app(TenantManager::class)->initialized()) {
             throw TenancyException::notInitialized(static::class);
         }
 
