@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Modules\Geography\Http\Controllers\LocalLevelController;
+use App\Modules\Geography\Http\Controllers\PublishedPathsController;
+use App\Modules\Geography\Http\Controllers\SearchController;
 use App\Modules\Offices\Http\Controllers\PersonController;
 use App\Modules\Offices\Http\Controllers\WardController;
 use App\Modules\Provenance\Http\Controllers\EvidenceController;
@@ -47,6 +49,17 @@ Route::middleware('throttle:public-read')->group(function (): void {
 
     Route::get('/local-levels', [LocalLevelController::class, 'index'])
         ->name('api.v1.local-levels.index');
+
+    /*
+     * Search and the sitemap feed both answer questions that span every
+     * municipality, so neither can sit inside the tenant group: a visitor
+     * searching has not chosen a municipality yet, and a sitemap is the list of
+     * all of them.
+     */
+    Route::get('/search', SearchController::class)->name('api.v1.search');
+
+    Route::get('/published-paths', PublishedPathsController::class)
+        ->name('api.v1.published-paths');
 
     // ---- Per-municipality: everything below resolves a tenant first --------
 
