@@ -58,6 +58,25 @@ export type Seat = {
   evidence: EvidenceRef | null;
 };
 
+/** One hit from the search endpoint — an address, not a page's worth of content. */
+export type SearchHit = {
+  type: 'local_level' | 'ward';
+  slug_path: string;
+  /** Present on a ward hit; the client renders it in the reader's own digits. */
+  ward_number: number | null;
+  name: Bilingual;
+  local_level_type: LocalLevelType | null;
+  district: Bilingual;
+  province: Bilingual;
+};
+
+/** Every address the public site has a real page for, for the sitemap. */
+export type PublishedPath = {
+  slug_path: string;
+  updated_at: string | null;
+  wards: { number: number; updated_at: string | null }[];
+};
+
 export type Coverage = { total: number; held: number; vacant: number; not_verified: number };
 
 /**
@@ -184,6 +203,34 @@ async function get<T>(path: string, revalidate: number): Promise<ApiResult<T>> {
 }
 
 /**
+ * The same request, deliberately uncached.
+ *
+ * ISR keys on the URL, so caching a search would mint one cache entry per
+ * distinct query string — including every typo on the way to a real one. That
+ * cache only grows and is almost never hit twice, which is the worst shape a
+ * cache can have. The endpoint it fronts scans a few thousand rows and is
+ * cheaper than the entry would be.
+ */
+async function getUncached<T>(path: string): Promise<ApiResult<T>> {
+  try {
+    const response = await fetch(`${ORIGIN}/api/v1${path}`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return { ok: false, status: response.status };
+    }
+
+    const body = (await response.json()) as { data: T };
+
+    return { ok: true, data: body.data };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+}
+
+/**
  * Cached for five minutes. The list of municipalities changes when one is
  * onboarded, which is a deliberate act nobody is waiting on.
  */
@@ -228,6 +275,22 @@ export function fetchEvidence(
     `/evidence/${path}/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}`,
     60,
   );
+}
+
+/**
+ * Place search. Not cached: a query string is unbounded, and an ISR entry per
+ * distinct typo is a cache that only ever grows and never gets a hit.
+ */
+export async function fetchSearch(query: string): Promise<ApiResult<SearchHit[]>> {
+  return getUncached<SearchHit[]>(`/search?q=${encodeURIComponent(query)}`);
+}
+
+/**
+ * The sitemap feed. An hour, because a sitemap is read by crawlers on their own
+ * schedule and a municipality opening is not an event anyone is refreshing for.
+ */
+export function fetchPublishedPaths(): Promise<ApiResult<PublishedPath[]>> {
+  return get<PublishedPath[]>('/published-paths', 3600);
 }
 
 /** Either script, preferring the reader's own (§16). */

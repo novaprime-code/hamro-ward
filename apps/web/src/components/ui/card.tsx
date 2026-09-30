@@ -4,20 +4,18 @@ import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
 
 /**
- * Two departures from the registry, both deliberate.
+ * A card, optionally rendered as something else.
  *
- * `asChild` — a whole card is often a single link. Wrapping a Card in a Link
- * nests two boxes and gives the focus ring the wrong shape; putting a Link
- * inside a Card makes only the text clickable. Slot makes the card itself the
- * anchor: one element, the full area is the target, and the focus outline
- * follows the card's own border radius. `block` is in the base class for this
- * reason: an `<a>` is inline by default, so its background and border collapse
- * to a sliver and the card silently disappears. It is a no-op on a div.
+ * `asChild` is what lets a whole card be one link — a search hit, a picker row,
+ * a ward tile — rather than a div containing a small anchor. The difference is
+ * the size of the tap target: on a phone, a card with a link inside it means
+ * aiming at a line of text, and a card that IS the link means hitting anywhere
+ * in it (--tap-target, NFR-ACC-03).
  *
- * Padding — the registry's spacing (py-6, px-6) assumes a desktop dashboard.
- * These are mostly lists on a phone, so the scale is p-4 with CardHeader and
- * CardFooter trimming the edge they sit against. Change it here, not at call
- * sites, or the lists drift apart.
+ * Same pattern as Button and Badge, which have had it since the registry
+ * components arrived. This is the one that was described in the docs without
+ * being implemented, so a card meant to be a link was silently a card with a
+ * link in it.
  */
 function Card({
   className,
@@ -29,14 +27,14 @@ function Card({
   return (
     <Comp
       data-slot="card"
-      className={cn('block rounded-card border border-border bg-card text-card-foreground', className)}
+      className={cn('rounded-card border border-border bg-card text-card-foreground', className)}
       {...props}
     />
   );
 }
 
 function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="card-header" className={cn('flex flex-col gap-1 p-4 pb-0', className)} {...props} />;
+  return <div data-slot="card-header" className={cn('flex flex-col gap-1 p-4', className)} {...props} />;
 }
 
 function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
@@ -56,7 +54,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
 }
 
 function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="card-content" className={cn('p-4', className)} {...props} />;
+  return <div data-slot="card-content" className={cn('p-4 pt-0', className)} {...props} />;
 }
 
 function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
