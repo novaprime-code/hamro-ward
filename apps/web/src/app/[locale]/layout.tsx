@@ -52,6 +52,31 @@ export async function generateMetadata({
       canonical: `/${locale}`,
       languages: { ne: '/ne', en: '/en', 'x-default': '/ne' },
     },
+    /*
+     * Share defaults for every page under this locale (§18).
+     *
+     * The images themselves are not listed here: Next collects them from the
+     * opengraph-image files in the route tree, so each page contributes its
+     * own card and inherits this one's when it has none. Naming images here
+     * would override that and give every ward the same picture.
+     *
+     * og:locale matters more than usual — without it a crawler guesses from
+     * the page language, and Devanagari titles are what it guesses wrong.
+     */
+    openGraph: {
+      type: 'website',
+      siteName: t('site.name'),
+      title: t('site.name'),
+      description: t('site.tagline'),
+      locale: locale === 'ne' ? 'ne_NP' : 'en_US',
+      alternateLocale: locale === 'ne' ? 'en_US' : 'ne_NP',
+      url: `/${locale}`,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: t('site.name'),
+      description: t('site.tagline'),
+    },
   };
 }
 

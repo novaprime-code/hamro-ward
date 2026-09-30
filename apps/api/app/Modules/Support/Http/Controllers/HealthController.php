@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Support\Http\Controllers;
 
+use App\Modules\Support\InternalClients;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -69,12 +70,18 @@ final class HealthController
             return false;
         }
 
-        $ip = (string) $request->ip();
-
+        /*
+         * Component detail names what is broken and how slow it is, which is
+         * useful to an operator and useful to somebody probing. It stays on the
+         * internal network.
+         *
+         * This used to test the address with str_starts_with($ip, '172.'),
+         * which matches the whole of 172.0.0.0/8 — mostly public address space.
+         * The private block is 172.16.0.0/12, and a dotted-string prefix cannot
+         * express a /12, so the check now goes through the same range matcher
+         * the rate limiter uses (config/security.php).
+         */
         return app()->environment('local')
-            || str_starts_with($ip, '10.')
-            || str_starts_with($ip, '172.')
-            || str_starts_with($ip, '192.168.')
-            || $ip === '127.0.0.1';
+            || InternalClients::matches($request->ip());
     }
 }
