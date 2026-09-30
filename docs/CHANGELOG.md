@@ -2,6 +2,107 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-09-30 — launch-visible gaps
+
+Three things a visitor or a crawler meets before they meet anything the schema
+guarantees. None of them touched the domain model.
+
+### Decided
+
+* **D-018: trusted proxies are named, not `*`.** `bootstrap/app.php` trusted
+  every caller's `X-Forwarded-*` headers. That is harmless only while nothing
+  reads the client address — and rate limiting reads it, the audit log will read
+  it, and issue reports will record it against a citizen's submission (`12`
+  §12). Under `*`, each of those values is chosen by whoever it identifies. The
+  trusted set is now the private ranges the container network is allocated from
+  (`TRUSTED_PROXIES`), Cloudflare's ranges are deliberately absent while it is
+  DNS-only, and `AWS_ELB` is out of the header set because no load balancer
+  exists in this deployment.
+* **D-019: the per-visitor rate limit belongs in the web tier, not in Laravel.**
+  The browser never reaches Laravel — server components fetch the API over the
+  private network — so every request Laravel sees comes from one address. An
+  IP-keyed limiter there would put every visitor into a single bucket and the
+  first busy minute would take the site down for all of them. Laravel keeps two
+  ceilings keyed by address (a public backstop, and a much higher runaway-loop
+  ceiling for the web tier); the per-visitor limit sits in the Next middleware,
+  which is the last layer that can still tell visitors apart. Deliberately not
+  forwarding the visitor's address to the API instead: reading request headers
+  in a server component makes the route dynamic and would switch off the ISR
+  caching that shields the API from nearly all of this traffic.
+
+### Code — web
+
+* `not-found.tsx` and `[...rest]/page.tsx`. Every `notFound()` in the
+  application, plus the three footer links to pages that did not exist,
+  previously fell through to the framework's built-in 404 — unstyled, outside
+  the layout, in English. A `not-found.tsx` inside a segment only renders for
+  `notFound()` raised *within* that segment, so the catch-all is what puts an
+  unmatched address inside the segment in the first place.
+* **`not-found.tsx` must stay a server component.** A `'use client'` version
+  type-checks, builds, returns the right status code, and server-renders
+  nothing: the copy appears only after hydration, which on a slow Android
+  connection is a blank page and to a crawler is a blank page permanently. The
+  locale therefore arrives on the `x-hw-locale` request header, set by the
+  middleware, because Next never passes route params to `not-found.tsx`.
+* `error.tsx` for the segment. Next renders error boundaries on the client by
+  design, so the status is server-side and the copy appears after hydration.
+* `about`, `sources` and `privacy`. Sources is written in full — the hierarchy,
+  the three seat states and the conflict rule are the platform's own policy and
+  already implemented. About and Privacy render an honest "not published yet"
+  state until `HW_OPERATOR_NAME`, `HW_OPERATOR_REGISTRATION` and
+  `HW_CORRECTIONS_EMAIL` are set: a company name with no registration number to
+  check it against is exactly the unverifiable claim this site tells readers not
+  to accept (D-003 G1–G2, G5).
+* Share cards (`opengraph-image`) for ward, municipality and locale root, with
+  Noto Sans Devanagari subsets vendored under `public/og/fonts` (SIL OFL 1.1).
+  Satori has no access to `next/font`, and without the bytes every Devanagari
+  glyph renders as an empty box — a failure only the people the link was shared
+  with would ever see. The card carries the coverage line and nothing else
+  quantitative: it is the easiest surface on which to start optimising for
+  outrage (§7, §18).
+  * The Devanagari and Latin subsets are separate Satori font families. Satori
+    keys a font by family, weight and style, so registering both as one family
+    silently shadowed the Latin subset and every comma, hyphen and slash — the
+    `7/9` in the coverage badge included — rendered as a box.
+  * `lib/share-metadata.ts`, because a page's `openGraph` object **replaces**
+    the layout's rather than merging: the ward page was losing `og:site_name`
+    and `og:locale`, and dropping to `twitter:card=summary`, which is the small
+    square preview rather than the wide card the 1200×630 image is drawn for.
+  * `lib/og/palette.ts` is the second and only other file holding a colour
+    value, because Satori resolves no custom properties. A test parses
+    `tokens.css` and fails if the two ever disagree.
+* `middleware.ts` enforces a per-address ceiling (`HW_RATE_LIMIT_PER_MINUTE`,
+  default 120/min) before routing. The address is the **last** entry of
+  `X-Forwarded-For` — the one the proxy observed. Everything before it is
+  supplied by the caller, so a limiter keyed on the first entry is defeated by
+  one forged header.
+* `vitest.config.ts` declares an empty PostCSS plugin list. Vite was finding
+  `postcss.config.mjs`, failing to load the Tailwind 4 plugin, and killing the
+  whole run in an unhandled rejection before a single test was collected — so
+  `pnpm --filter web test` had not actually been running any tests.
+
+### Code — api
+
+* `config/security.php`, `SecurityServiceProvider` (the `public-read` limiter),
+  and `throttle:public-read` on every public route. `/api/v1/health` is
+  deliberately exempt: a monitor that gets a 429 reports an outage that is not
+  happening, and an orchestrator that gets one restarts a healthy container.
+* `TrustedProxies` and `InternalClients` in `Modules\Support`, both tested.
+* **Fixed:** `HealthController::detailAllowed()` admitted any address starting
+  `172.` — that is 172.0.0.0/8, mostly public space, including ranges Google
+  routes on. The private block is 172.16.0.0/12, which a dotted-string prefix
+  cannot express. It now uses the same range matcher as the limiter.
+
+### Not done
+
+* `sitemap.ts` and `robots.ts` still do not exist; the middleware matcher
+  already reserves both paths.
+* RFC 9457 `problem+json` is still a comment in `bootstrap/app.php`, while `06`
+  describes it as the API's error format.
+* `privacy` must be **rewritten, not extended**, before v0.2 opens citizen
+  accounts and issue reporting.
+
+
 ## 2026-09-26 (frontend)
 
 ### Decided
