@@ -17,7 +17,12 @@ export HW_GID
 # call and works whether or not the app container is up — which matters most
 # on a fresh clone, where `composer install` has to run before the container
 # can stay running at all.
+#
+# PHP_ISO adds --no-deps for commands that touch no service. Without it,
+# `composer install` starts Postgres, and an unrelated registry or database
+# problem breaks dependency installation for no reason.
 PHP     = $(COMPOSE) run --rm app
+PHP_ISO = $(COMPOSE) run --rm --no-deps app
 ARTISAN = $(PHP) php artisan
 
 help:
@@ -66,7 +71,7 @@ psql-tenant: ## psql on one tenant database: make psql-tenant DB=hw_t_5f3a9c1e
 # ---- dependencies and processes ---------------------------------------------
 
 install: build ## Install PHP (container) and JS (host) dependencies
-	$(PHP) composer install
+	$(PHP_ISO) composer install
 	pnpm install
 
 web: ## Next.js app on :3000 — runs on the host, Node is fine natively
@@ -117,13 +122,13 @@ test: ## Run all tests
 	pnpm --filter web test -- --run
 
 lint: ## Style and static analysis
-	$(PHP) ./vendor/bin/pint --test
-	$(PHP) ./vendor/bin/phpstan analyse --memory-limit=1G
+	$(PHP_ISO) ./vendor/bin/pint --test
+	$(PHP_ISO) ./vendor/bin/phpstan analyse --memory-limit=1G
 	pnpm --filter web lint
 	pnpm --filter web exec tsc --noEmit
 
 format: ## Fix formatting
-	$(PHP) ./vendor/bin/pint
+	$(PHP_ISO) ./vendor/bin/pint
 
 # The web build is not redundant with lint and test. It has caught unresolved
 # imports, a bad type predicate, a server/client boundary violation and a

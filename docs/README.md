@@ -12,12 +12,27 @@
 | 06 | `06_TECHNICAL_ARCHITECTURE.md` | Draft v0.2 | System design, infrastructure, security, deployment |
 | 07 | `07_DATA_SOURCES.md` | Planned (v0.3) | Source inventory, licences, acquisition |
 | 08 | `08_ROADMAP_AND_DELIVERY_PLAN.md` | Draft v0.4 | Versions, weeks, days, process, tracker setup |
-| 09 | `09_UX_UI_SPEC.md` | Draft v0.2 | Design system, screens, components, copy |
+| 09 | `09_UX_UI_SPEC.md` | **Out of date** | Design system, screens, components, copy. Still describes the rejected palette and about a third of the approved screens |
 | 10 | `10_AI_EVALUATION.md` | Planned (v1.2) | AI evaluation and red-team |
 | 11 | `11_THREAT_MODEL.md` | Planned (v0.3) | Full threat model (baseline in 06 §19, 12 §16) |
 | 12 | `12_TENANCY_AND_IDENTITY.md` | Draft v0.1 | Tenant per local level (separate databases), citizen and staff accounts, auth |
-| — | `BACKLOG.md` | Generated | All epics, features, tasks; day-by-day plan |
-| — | `DECISIONS.md` | Living | Decision log D-001 … |
-| — | `CHANGELOG.md` | Living | Documentation changes |
+| 13 | `13_DEMO_DATASET.md` | Living | The four invented municipalities, what each ward demonstrates, how to retire it |
+| 14 | `14_CURRENT_STATE.md` | **Living — read first** | What is actually deployed today, what is not built, what to do next |
 
-Work items come from `tools/backlog/build_backlog.py`. Regenerate with `python3 tools/backlog/build_backlog.py`.
+## Working documents
+
+| Document | Purpose |
+|---|---|
+| `DEVELOPMENT.md` | Running the project locally, code layout, conventions, and the traps this codebase has already sprung |
+| `SETUP.md` | Standing up a server environment, first boot, seeding, troubleshooting |
+| `REPO_README.md` | The repository root README — orientation for someone opening the repo |
+| `BACKLOG.md` | Generated. All epics, features, tasks; day-by-day plan |
+| `DECISIONS.md` | Living. Decision log D-001 … D-017 |
+| `CHANGELOG.md` | Living. Documentation and architecture changes |
+
+**Starting a new conversation about this project?** Read `14_CURRENT_STATE.md`
+first — it is written for exactly that, and it says what is running, what is
+missing and what is worth doing next.
+
+Work items come from `tools/backlog/build_backlog.py`. Regenerate with
+`python3 tools/backlog/build_backlog.py`.
