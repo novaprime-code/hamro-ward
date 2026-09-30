@@ -21,24 +21,39 @@ use Illuminate\Support\Facades\Route;
 | The URL carries its own address — province/district/local-level/ward — and
 | ResolveTenant turns the local-level segment into a database connection
 | before any handler runs. Routes outside that group never touch a tenant.
+|
+| Every route is throttled. The limit is generous for the web tier and tight
+| for anything else, because the web tier's requests each stand for many
+| visitors while nothing else is supposed to be calling this at all — see
+| SecurityServiceProvider and config/security.php. The per-visitor ceiling is
+| not here and cannot be: visitors are behind the web tier, and Laravel sees
+| them all as one address.
 */
 
 // ---- Support ---------------------------------------------------------------
 
+/*
+ * Not throttled, deliberately. This is what a container health check and an
+ * uptime monitor call, on a schedule, and a monitor that gets a 429 reports an
+ * outage that is not happening. It touches no database and returns a fixed
+ * shape, so there is nothing here to exhaust.
+ */
 Route::get('/health', HealthController::class)->name('api.v1.health');
 
-// ---- Geography: central only, the list a visitor picks from ----------------
+Route::middleware('throttle:public-read')->group(function (): void {
+    // ---- Geography: central only, the list a visitor picks from ------------
 
-Route::get('/local-levels', [LocalLevelController::class, 'index'])
-    ->name('api.v1.local-levels.index');
+    Route::get('/local-levels', [LocalLevelController::class, 'index'])
+        ->name('api.v1.local-levels.index');
 
-// ---- Per-municipality: everything below resolves a tenant first ------------
+    // ---- Per-municipality: everything below resolves a tenant first --------
 
-Route::middleware(ResolveTenant::class)->group(function (): void {
-    Route::get('/local-levels/{province}/{district}/{local_level}', [LocalLevelController::class, 'show'])
-        ->name('api.v1.local-levels.show');
+    Route::middleware(ResolveTenant::class)->group(function (): void {
+        Route::get('/local-levels/{province}/{district}/{local_level}', [LocalLevelController::class, 'show'])
+            ->name('api.v1.local-levels.show');
 
-    Route::get('/wards/{province}/{district}/{local_level}/{ward}', [WardController::class, 'show'])
-        ->whereNumber('ward')
-        ->name('api.v1.wards.show');
+        Route::get('/wards/{province}/{district}/{local_level}/{ward}', [WardController::class, 'show'])
+            ->whereNumber('ward')
+            ->name('api.v1.wards.show');
+    });
 });
