@@ -49,9 +49,80 @@ export type Seat = {
   person: { slug: string; name: Bilingual } | null;
   party: { slug: string; name: Bilingual; abbreviation: Bilingual } | null;
   vacancy: { reason: string; since: string | null } | null;
+  /**
+   * The record this seat's sources hang off, or null when nothing is recorded
+   * at all. Null and "recorded but unsourced" are different: the first has no
+   * page to show, the second has a page that says plainly there is no evidence
+   * yet.
+   */
+  evidence: EvidenceRef | null;
 };
 
 export type Coverage = { total: number; held: number; vacant: number; not_verified: number };
+
+/**
+ * Where to read the working for one record (HW-E04-F02).
+ *
+ * `subject_type` is a stable key, not a class name, so a link a citizen shared
+ * keeps resolving across refactors.
+ */
+export type EvidenceRef = { subject_type: string; subject_id: string };
+
+export type EvidenceSource = {
+  source_id: string;
+  title: string;
+  publisher: string | null;
+  url: string | null;
+  source_type: {
+    key: string;
+    label: Bilingual;
+    /** 1 is the Election Commission; higher is less authoritative. */
+    authority_rank: number;
+  };
+  provenance_type: ProvenanceKind;
+  verification_status: 'unverified' | 'verified' | 'disputed' | 'rejected';
+  /** What THIS source says the value is — not necessarily what the site shows. */
+  asserted_value: string | null;
+  locator: string | null;
+  excerpt: string | null;
+  published_at: string | null;
+  retrieved_at: string | null;
+};
+
+export type ProvenanceKind =
+  | 'official'
+  | 'candidate_submitted'
+  | 'public_record'
+  | 'verified_community_report'
+  | 'community_report'
+  | 'media_report'
+  | 'ai_generated_summary'
+  | 'unverified_claim';
+
+export type EvidenceDetail = {
+  subject_type: string;
+  subject_id: string;
+  is_empty: boolean;
+  has_conflict: boolean;
+  /** Sources for the record as a whole. */
+  record: EvidenceSource[];
+  /** Sources for individual values, where disagreement lives. */
+  fields: { field_path: string; in_conflict: boolean; sources: EvidenceSource[] }[];
+};
+
+export type PersonDetail = {
+  slug: string;
+  name: Bilingual;
+  local_level: {
+    slug_path: string;
+    name: Bilingual;
+    type: LocalLevelType | null;
+    district: Bilingual;
+    province: Bilingual;
+  };
+  seats: Seat[];
+  evidence: EvidenceRef;
+};
 
 export type LocalLevelDetail = {
   slug_path: string;
@@ -130,6 +201,33 @@ export function fetchLocalLevel(path: string): Promise<ApiResult<LocalLevelDetai
  */
 export function fetchWard(path: string, ward: number): Promise<ApiResult<WardDetail>> {
   return get<WardDetail>(`/wards/${path}/${ward}`, 60);
+}
+
+/**
+ * The person behind a seat row. Same cache window as a ward: the two pages show
+ * the same holding from different directions and should not disagree about it.
+ */
+export function fetchPerson(path: string, slug: string): Promise<ApiResult<PersonDetail>> {
+  return get<PersonDetail>(`/persons/${path}/${encodeURIComponent(slug)}`, 60);
+}
+
+/**
+ * The sources behind one record.
+ *
+ * Cached for a minute, like the pages that link to it. Longer would be worse
+ * than it looks: the moment an editor verifies a source is exactly when someone
+ * is refreshing to see whether it took, and an evidence page that lags the seat
+ * state it explains is its own small credibility problem.
+ */
+export function fetchEvidence(
+  path: string,
+  subjectType: string,
+  subjectId: string,
+): Promise<ApiResult<EvidenceDetail>> {
+  return get<EvidenceDetail>(
+    `/evidence/${path}/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}`,
+    60,
+  );
 }
 
 /** Either script, preferring the reader's own (§16). */

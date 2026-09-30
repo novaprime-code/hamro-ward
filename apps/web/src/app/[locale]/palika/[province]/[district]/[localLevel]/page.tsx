@@ -141,7 +141,7 @@ export default async function LocalLevelPage({ params }: { params: Promise<PageP
           seats={place.leadership}
           locale={locale}
           t={t}
-          basePath={`/${locale}/palika/${place.slug_path}`}
+          localLevelPath={place.slug_path}
         />
       </section>
     </div>

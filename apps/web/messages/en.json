@@ -1,11 +1,9 @@
 {
   "site.name": "Hamro Ward",
   "site.tagline": "Your ward, your information, your voice",
-
   "home.title": "Who represents your ward, and where that information comes from",
   "home.intro": "Every fact here shows its source. Anything we cannot confirm is shown as unverified, not as a fact.",
   "home.wardPlateLabel": "Ward no.",
-
   "picker.heading": "Find your ward",
   "picker.search": "Municipality or rural municipality name",
   "picker.wards": "wards",
@@ -14,17 +12,14 @@
   "picker.noneHelp": "We add them one at a time. Tell us which one you need first.",
   "picker.notListed": "Your municipality not here?",
   "picker.notListedHelp": "We add them one at a time, and we start with the ones people ask for.",
-
   "type.metropolitan_city": "Metropolitan city",
   "type.sub_metropolitan_city": "Sub-metropolitan city",
   "type.municipality": "Municipality",
   "type.rural_municipality": "Rural municipality",
-
   "localLevel.chooseWard": "Choose a ward",
   "localLevel.leadership": "Municipal leadership",
   "localLevel.noWards": "No ward is published yet",
   "localLevel.noWardsHelp": "This municipality is still being set up.",
-
   "ward.representatives": "Your representatives",
   "ward.localLevelSeats": "Elected by the whole municipality",
   "ward.localLevelSeatsHelp": "You vote for these on the same ballot, but they serve all of {place}, not this ward alone.",
@@ -37,26 +32,20 @@
   "ward.officeUnknown": "We do not have the ward office details yet",
   "ward.officeUnknownHelp": "We would rather show nothing than a phone number nobody can vouch for.",
   "ward.backToLocalLevel": "All wards in {place}",
-
   "coverage.confirmed": "seats confirmed",
-
   "share.wardDescription": "{ward}, {place} — {held}/{total} seats confirmed against an official source.",
   "share.localLevelDescription": "{place}, {district} — {wards} wards. Every seat shown with its source.",
-
   "seats.none": "No seats to show",
   "seats.noneHelp": "The positions catalogue has not reached this municipality yet.",
   "seat.independent": "Independent",
-
   "provenance.official": "Official source",
   "provenance.municipalNotice": "Municipal notice",
   "provenance.communityReport": "Community report",
   "provenance.unverifiedClaim": "Unverified claim",
-
   "state.notVerified": "Not yet verified",
   "state.notVerifiedHelp": "We have not confirmed this seat against an official source yet.",
   "state.knowASource": "Know a source? Send it to us",
   "state.vacant": "Vacant",
-
   "vacancy.never_filled": "This seat has never been filled.",
   "vacancy.no_candidate": "Nobody stood for this seat at the last election.",
   "vacancy.resignation": "Vacant after a resignation. No by-election has been announced.",
@@ -64,20 +53,17 @@
   "vacancy.removal": "Vacant after a removal from office.",
   "vacancy.suspension": "The holder is suspended.",
   "vacancy.other": "This seat is recorded as vacant.",
-
   "error.unavailable": "We cannot load this right now",
   "error.unavailableHelp": "The information is fine; we just could not reach it. Try again in a moment.",
   "error.crashed": "Something went wrong",
   "error.crashedHelp": "This is a fault on our side. You did nothing wrong, and there is no reason to doubt the information shown elsewhere on the site.",
   "error.reference": "Error reference",
   "error.retry": "Try again",
-
   "notFound.title": "We could not find that page",
   "notFound.help": "The link may be broken, or we may not have built this page yet.",
   "notFound.reasons": "Two things it could be",
   "notFound.reasonsHelp": "A typo in the address, or a municipality that is not open on Hamro Ward yet. The address alone cannot tell them apart, so we have said both.",
   "notFound.findWard": "Find your ward",
-
   "about.title": "About Hamro Ward",
   "about.intro": "Hamro Ward answers one question: who represents your ward, and where that information came from.",
   "about.whatHeading": "What this is",
@@ -90,7 +76,6 @@
   "about.operatorPendingHelp": "Its registration is not finished. Publishing a name without a registration number anyone can check would be an unverifiable claim, and not making those is the whole principle of this site. Both will appear here once they are ready.",
   "about.betaHeading": "This is a beta",
   "about.betaBody": "The information is incomplete, and where it is incomplete we say so. A seat with no name against it means we have not established who holds it — not that the seat is empty.",
-
   "sources.title": "How sources work here",
   "sources.intro": "Every fact on this site carries a record of where it came from. Anything without a source is not presented as a fact.",
   "sources.orderHeading": "Which source comes first",
@@ -107,7 +92,6 @@
   "sources.correctionsHeading": "Found a mistake?",
   "sources.correctionsBody": "Send it to us. Corrections that arrive with a source get dealt with first.",
   "sources.correctionsPending": "There is no corrections address yet. It will be published here once the operating organisation is settled.",
-
   "privacy.title": "Privacy",
   "privacy.draftNotice": "This is not the full privacy notice",
   "privacy.draftNoticeHelp": "The full notice will be published before citizen accounts and issue reporting open, after legal review by the operating organisation. What follows is only what is true of this beta today.",
@@ -117,12 +101,38 @@
   "privacy.serverLogs": "Like any website, the server keeps an ordinary record of requests. How long those are kept will be settled together with the operating organisation.",
   "privacy.nextHeading": "What comes next",
   "privacy.nextBody": "Citizen accounts and local issue reporting will mean you give us more. What is collected, how long it is kept and who can see it will all be written here — before any of it starts.",
-
   "beta.banner": "This is a beta. Information may be incomplete.",
   "status.apiOk": "Service healthy",
   "status.apiDown": "Service problem",
   "footer.about": "About",
   "footer.privacy": "Privacy",
   "footer.sources": "Sources",
-  "locale.switch": "नेपाली"
+  "locale.switch": "नेपाली",
+  "person.currentSeats": "Seats held now",
+  "person.scopeNote": "This page shows only the seats held in {place} today. Seats held in other municipalities, and terms that have ended, are not shown here.",
+  "evidence.title": "Where this came from",
+  "evidence.intro": "This information rests on the documents below. Which document, who published it, and when — all of it is here.",
+  "evidence.none": "No source recorded for this yet",
+  "evidence.noneHelp": "That does not mean the information is wrong; it means we have not yet found a document we can stand behind. Which is why it is not shown as confirmed.",
+  "evidence.wholeRecord": "Sources for the whole record",
+  "evidence.conflict": "These sources disagree",
+  "evidence.conflictHelp": "Different documents say different things. We have not picked one and dropped the other — both are below, the more authoritative one first.",
+  "evidence.seeSources": "See the sources",
+  "evidence.aboutThisRecord": "Sources for this record",
+  "evidence.notVerified": "Not verified",
+  "evidence.saysThat": "This source says:",
+  "evidence.locator": "Where:",
+  "evidence.published": "Published:",
+  "evidence.retrieved": "We retrieved it:",
+  "evidence.openSource": "Open the original document",
+  "evidence.howHeading": "How sources are ranked",
+  "evidence.howBody": "The Election Commission first, then government bodies, then the municipality and its ward offices, then documents and journalism. Something on social media is a claim to check, not evidence.",
+  "evidence.field.party_id": "Which party they were elected for",
+  "evidence.field.person_id": "Who holds it",
+  "evidence.field.start_date": "In office since",
+  "evidence.field.end_date": "In office until",
+  "evidence.field.name_ne": "Name (Nepali)",
+  "evidence.field.name_en": "Name (English)",
+  "share.personDescription": "{name} — {role}, {place}. Every fact shown with its source.",
+  "evidence.field.generic": "About one detail"
 }
