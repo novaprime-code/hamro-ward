@@ -110,7 +110,6 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
 
   const data = result.data;
   const place = data.local_level;
-  const basePath = `/${locale}/ward/${path}/${wardNumber}`;
 
   const wardSeats = data.seats.filter((seat) => seat.constituency_level === 'ward');
   const localLevelSeats = data.seats.filter((seat) => seat.constituency_level === 'local_level');
@@ -133,7 +132,7 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
           locale={locale}
           label={(confirmed, total) => `${confirmed}/${total} ${t('coverage.confirmed')}`}
         />
-        <SeatList seats={wardSeats} locale={locale} t={t} basePath={basePath} />
+        <SeatList seats={wardSeats} locale={locale} t={t} localLevelPath={path} />
       </section>
 
       {localLevelSeats.length === 0 ? null : (
@@ -146,7 +145,7 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
           <p className="text-sm text-muted-foreground">
             {t('ward.localLevelSeatsHelp').replace('{place}', pick(place.name, locale))}
           </p>
-          <SeatList seats={localLevelSeats} locale={locale} t={t} basePath={basePath} />
+          <SeatList seats={localLevelSeats} locale={locale} t={t} localLevelPath={path} />
         </section>
       )}
 

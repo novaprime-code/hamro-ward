@@ -8,6 +8,7 @@ import {
   Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import type { badgeVariants } from '@/components/ui/badge';
@@ -50,12 +51,22 @@ const PRESENTATION: Record<ProvenanceType, { icon: LucideIcon; variant: BadgeVar
 export function ProvenanceBadge({
   type,
   label,
+  href,
   onOpen,
   className,
 }: {
   type: ProvenanceType;
   label: string;
-  /** When given, the badge opens the source sheet (HW-E04-F02). */
+  /**
+   * The sources page for this fact (HW-E04-F02).
+   *
+   * A link rather than a dialog, deliberately. The evidence page is a real
+   * address a reader can share, a search engine can index and a phone can
+   * render without waiting for JavaScript — and on a small screen a full page
+   * beats a sheet anyway (§17, §18). A modal would have been none of those.
+   */
+  href?: string;
+  /** Legacy hook for an in-page sheet. Prefer `href`. */
   onOpen?: () => void;
   className?: string;
 }) {
@@ -67,6 +78,21 @@ export function ProvenanceBadge({
       {label}
     </>
   );
+
+  if (href) {
+    /* asChild so the badge keeps its own markup and the anchor keeps its
+       semantics. min-h-9 because a badge is small and a thumb is not: this is
+       a real navigation target, not decoration (--tap-target, NFR-ACC-03). */
+    return (
+      <Badge
+        variant={variant}
+        className={cn('mt-2 min-h-9 px-3 underline-offset-4 hover:underline', className)}
+        asChild
+      >
+        <Link href={href}>{content}</Link>
+      </Badge>
+    );
+  }
 
   if (!onOpen) {
     return (

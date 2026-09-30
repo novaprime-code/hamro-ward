@@ -60,6 +60,33 @@ final class SeatResource extends JsonResource
                 'reason' => $seat->vacancyReason->value,
                 'since' => $seat->vacantFrom?->toDateString(),
             ],
+            /*
+             * Where to read the working. The badge on a seat row used to say
+             * "official source" and go nowhere; this is the address of the
+             * record the sources are attached to, so the client can link to it
+             * (HW-E04-F02).
+             *
+             * Null means no record exists for this seat, which is a different
+             * thing from a record with no sources — the first has nothing to
+             * show, the second has an empty evidence page that says so.
+             */
+            'evidence' => $this->evidence($seat),
         ];
+    }
+
+    /**
+     * @return array{subject_type: string, subject_id: string}|null
+     */
+    private function evidence(SeatRow $seat): ?array
+    {
+        $subject = $seat->evidenceSubject();
+
+        if ($subject === null) {
+            return null;
+        }
+
+        [$type, $id] = $subject;
+
+        return ['subject_type' => $type, 'subject_id' => $id];
     }
 }

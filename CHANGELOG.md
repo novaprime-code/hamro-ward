@@ -2,6 +2,99 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-01 — Phase A: the read path leads somewhere
+
+Two dead ends on the ward page, closed. A held seat linked to an anchor on the
+page the reader was already on, and the provenance badge said "official source"
+without saying which one. Both were truthful placeholders; neither survives
+contact with a reader who wants to check.
+
+### Decided
+
+* **D-020: the person page is scoped to one municipality.** Holdings live in
+  per-municipality databases and PostgreSQL will not join across them, so a
+  career spanning several needs a central index that does not exist yet
+  (D-014). A reader always arrives from a ward, so the municipality is known.
+  The page says plainly that it shows only this municipality and only current
+  terms — a page that silently showed part of a career while looking complete
+  would be making exactly the kind of unstated claim this platform exists to
+  avoid.
+* **D-021: evidence is a page, not a sheet.** `ProvenanceBadge` had reserved an
+  `onOpen` hook for a dialog since `HW-E07-F03`. A page wins on every axis that
+  matters here: it has an address a reader can share and a search engine can
+  index (§18), it server-renders without JavaScript, and on a phone a full page
+  beats a sheet anyway (§17). The `onOpen` prop stays for now but nothing uses
+  it.
+
+### Code — api
+
+* `HW-E05-F02-T02`: `GET /api/v1/persons/{province}/{district}/{local_level}/{person}`.
+  Returns the person, the seats they hold in this municipality, and the address
+  of the evidence for the person record itself — which is a separate claim from
+  evidence that they hold a seat, and kept separate so a verified holding cannot
+  imply a verified identity. A published person who holds nothing here is a 404,
+  not an empty page.
+* `HW-E04-F02-T01`: `GET /api/v1/evidence/{province}/{district}/{local_level}/{subject_type}/{subject_id}`,
+  and `EvidenceForSubject` behind it. Three things a naive "select source_links
+  where subject" would not do:
+  * **Refuses subjects not on an allowlist, and checks each one is public.**
+    subject_type and subject_id arrive from a URL; without this the endpoint
+    reads evidence for unpublished wards and unpublished people straight back
+    out of the database, one guessed uuid at a time. The allowlist is stated
+    twice — a route constraint and a const in the query — so a subject added to
+    one and forgotten in the other fails closed.
+  * **Resolves both scopes.** A tenant link points at a local source in the
+    tenant database or a national one in central (D-014, `12` §4.1), and the two
+    cannot be joined. Two lookups, not one per link.
+  * **Groups by field and surfaces disagreement.** Conflict is defined narrowly
+    as two or more DISTINCT asserted values for one field: corroboration dressed
+    up as a dispute is its own way of misleading a reader.
+* An unknown source type sorts LAST (rank 99), so a row missing from a tenant's
+  replica cannot quietly outrank the Election Commission.
+* An empty result is a 200, not a 404. "This record exists and nothing backs it
+  yet" is the same answer the seat list already gives as `not_verified`.
+* `SeatRow` carries `officeHoldingId` and `vacancyId`; `SeatResource` exposes
+  them as `evidence`. The row previously carried the state a source implies but
+  not the id of the thing the source is about, which is why the badge had
+  nowhere to go.
+
+### Code — web
+
+* `/[locale]/person/…/[slug]` and `/[locale]/source/…/[subjectType]/[subjectId]`.
+* The person page has no biography, no photo gallery, no achievements. The
+  Person record holds no gender, caste, ethnicity, religion, date of birth or
+  address, so there is nothing to render — and a page that grew those fields
+  would become a profile, which invites judgement of the person rather than
+  scrutiny of the record (§2).
+* `SeatRow` is no longer one link wrapping everything. The row now has two
+  destinations — the name goes to the person, the badge to the sources — and an
+  anchor inside an anchor is invalid HTML that browsers recover from by dropping
+  the inner one, which would have been precisely the badge's link.
+* `SeatList` takes `localLevelPath` instead of `basePath` and builds both links
+  itself, so they cannot drift out of step and send a reader to one
+  municipality's person and another's sources.
+* `SourceCard` orders its fields as the argument runs: source type first,
+  because that is how a reader should weigh everything under it. Two dates, not
+  one — `published_at` is when the document said it, `retrieved_at` is when we
+  looked, and the gap is the window in which a page could have changed under us
+  (§13).
+* A field with no label renders "About one detail" rather than
+  `evidence.field.some_column`. The translator returns the key when it has no
+  entry, and a database column name on screen is not legible to a citizen.
+* `messages.test.ts`: the two catalogues must carry the same keys and the same
+  placeholders. `getMessages` merges Nepali underneath English, so a key missing
+  from English silently renders Nepali — visible only to whoever is reading in
+  the language nobody on the team is checking, which here is the language most
+  readers use.
+
+### Still open
+
+* Term history and cross-municipality careers both need a central index.
+* Recorded `fact_conflicts` rows are not read yet; conflict is derived from the
+  links, which is what the demonstration dataset actually populates. Joining the
+  table arrives with the verification workflow (`HW-E17`).
+
+
 ## 2026-09-26 (frontend)
 
 ### Decided
