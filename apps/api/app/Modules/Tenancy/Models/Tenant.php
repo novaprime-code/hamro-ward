@@ -71,7 +71,7 @@ final class Tenant extends Model
 
     protected static function booted(): void
     {
-        static::creating(function (Tenant $tenant): void {
+        self::creating(function (Tenant $tenant): void {
             if (blank($tenant->tenant_key)) {
                 $tenant->tenant_key = TenantDatabaseName::generateUniqueKey();
             }
@@ -79,7 +79,7 @@ final class Tenant extends Model
             $tenant->database_name = TenantDatabaseName::forKey($tenant->tenant_key);
         });
 
-        static::updating(function (Tenant $tenant): void {
+        self::updating(function (Tenant $tenant): void {
             if ($tenant->isDirty(['tenant_key', 'database_name'])) {
                 throw TenancyException::immutableIdentity($tenant);
             }

@@ -50,7 +50,6 @@ final class AdminUnit extends Model
     use HasFactory;
 
     use HasSourceLinks;
-
     use HasUuids;
     use UsesCentralConnection;
 
@@ -177,7 +176,7 @@ final class AdminUnit extends Model
      */
     public function ancestorIds(): array
     {
-        if ($this->exists && ! array_key_exists('ancestor_ids', $this->getAttributes())) {
+        if ($this->exists && !array_key_exists('ancestor_ids', $this->getAttributes())) {
             $raw = self::query()->whereKey($this->getKey())->value('ancestor_ids');
 
             $this->setRawAttributes(

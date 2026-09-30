@@ -40,7 +40,7 @@ final class DemoGuard
 
     private function assertNotProduction(): void
     {
-        if (! $this->app->environment('production')) {
+        if (!$this->app->environment('production')) {
             return;
         }
 

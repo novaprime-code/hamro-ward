@@ -26,7 +26,7 @@ final class SeedDemoCommand extends Command
         $this->line('  Four tenant databases will be created or refreshed.');
         $this->newLine();
 
-        if (! $this->option('force') && ! $this->confirm('Continue?', true)) {
+        if (!$this->option('force') && !$this->confirm('Continue?', true)) {
             $this->components->warn('Nothing was seeded.');
 
             return self::SUCCESS;

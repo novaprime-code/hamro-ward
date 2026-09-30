@@ -20,7 +20,7 @@ final class PostgresUuidArray implements CastsAttributes
      */
     public function get(Model $model, string $key, mixed $value, array $attributes): array
     {
-        if (! is_string($value) || $value === '{}' || $value === '') {
+        if (!is_string($value) || $value === '{}' || $value === '') {
             return [];
         }
 

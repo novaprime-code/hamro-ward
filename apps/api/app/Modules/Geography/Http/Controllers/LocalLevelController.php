@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Geography\Http\Controllers;
 
-use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Http\Resources\LocalLevelSummaryResource;
 use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Geography\Models\TenantAdminUnit;

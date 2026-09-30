@@ -20,9 +20,11 @@ use App\Modules\Tenancy\Models\Tenant;
 use App\Modules\Tenancy\TenantManager;
 use Database\Seeders\PositionSeeder;
 use Database\Seeders\SourceTypeSeeder;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
@@ -47,7 +49,7 @@ function verify(string $subjectType, string $subjectId): void
         'subject_id' => $subjectId,
         'provenance_type' => ProvenanceType::Official,
         'verification_status' => 'verified',
-        'verified_by' => (string) Illuminate\Support\Str::uuid(),
+        'verified_by' => (string) Str::uuid(),
         'verified_at' => now(),
     ]);
 }
@@ -309,7 +311,7 @@ it('resolves people and parties without a query per seat', function (): void {
             }
 
             $central = 0;
-            DB::listen(function (Illuminate\Database\Events\QueryExecuted $query) use (&$central): void {
+            DB::listen(function (QueryExecuted $query) use (&$central): void {
                 if ($query->connectionName === 'central') {
                     $central++;
                 }

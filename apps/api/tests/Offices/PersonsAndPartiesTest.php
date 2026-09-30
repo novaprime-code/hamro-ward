@@ -8,6 +8,7 @@ use App\Modules\Offices\Models\PersonMerge;
 use App\Modules\Offices\Support\PersonSlug;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
@@ -97,7 +98,7 @@ it('requires two different approvers for a merge', function (): void {
     // person's judgement is not enough to fuse two records.
     $kept = Person::factory()->create();
     $duplicate = Person::factory()->create();
-    $approver = (string) Illuminate\Support\Str::uuid();
+    $approver = (string) Str::uuid();
 
     expectRejectedByDatabase(fn () => PersonMerge::query()->create([
         'kept_person_id' => $kept->id,
@@ -116,8 +117,8 @@ it('records a merge once both approvers have signed', function (): void {
         'kept_person_id' => $kept->id,
         'merged_person_id' => $duplicate->id,
         'reason' => 'Same ward chair, two spellings',
-        'approved_by' => (string) Illuminate\Support\Str::uuid(),
-        'second_approved_by' => (string) Illuminate\Support\Str::uuid(),
+        'approved_by' => (string) Str::uuid(),
+        'second_approved_by' => (string) Str::uuid(),
     ]);
 
     expect($merge->isFullyApproved())->toBeTrue()

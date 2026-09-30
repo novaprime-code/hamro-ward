@@ -21,7 +21,7 @@ final class DemoDataException extends RuntimeException
             'Refusing to seed demonstration data in production. '
             .'Invented representatives must never reach a live civic platform. '
             .'If this really is intended — a staging environment running with APP_ENV=production, say — '
-            .'set HW_ALLOW_DEMO_DATA=true explicitly.'
+            .'set HW_ALLOW_DEMO_DATA=true explicitly.',
         );
     }
 
@@ -32,21 +32,21 @@ final class DemoDataException extends RuntimeException
             'A demonstration local level name matches a real published local level: '
             .implode(', ', $collisions).'. '
             .'Rename the demonstration local level in DemoDataset before seeding — '
-            .'an invented municipality sharing a real name is exactly what this dataset exists to avoid.'
+            .'an invented municipality sharing a real name is exactly what this dataset exists to avoid.',
         );
     }
 
     public static function geographyMissing(string $slugPath): self
     {
         return new self(
-            "Demonstration geography for {$slugPath} has not been created. Run hw:demo:seed without --tenants-only."
+            "Demonstration geography for {$slugPath} has not been created. Run hw:demo:seed without --tenants-only.",
         );
     }
 
     public static function noPositions(): self
     {
         return new self(
-            'The positions catalogue is empty, so no seats can be filled. Run php artisan db:seed first.'
+            'The positions catalogue is empty, so no seats can be filled. Run php artisan db:seed first.',
         );
     }
 }

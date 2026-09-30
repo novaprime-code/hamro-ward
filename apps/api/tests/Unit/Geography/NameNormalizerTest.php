@@ -11,12 +11,12 @@ it('normalizes romanized spelling variants', function (string $input, string $ex
     'ee → i' => ['Itaharee', 'itahari'],
     'oo → u' => ['Gorkhaa Bazaar', 'gorkha bazar'],
     'w → v' => ['Hawaldar', 'havaldar'],
-    'punctuation' => ["Sub-Metropolitan City (SMC)", 'sub metropolitan city smc'],
+    'punctuation' => ['Sub-Metropolitan City (SMC)', 'sub metropolitan city smc'],
 ]);
 
 it('normalizes Devanagari variants', function (): void {
     // nukta removed: ड़ → ड
-    expect(NameNormalizer::normalize("बड़ा"))->toBe('बडा')
+    expect(NameNormalizer::normalize('बड़ा'))->toBe('बडा')
         // chandrabindu → anusvara
         ->and(NameNormalizer::normalize('गाँउ'))->toBe('गांउ')
         // zero-width joiners removed
