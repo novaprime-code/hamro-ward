@@ -7,6 +7,7 @@ namespace App\Modules\Accounts\Models;
 use App\Modules\Accounts\Enums\WardRelationship;
 use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Tenancy\Models\Concerns\UsesCentralConnection;
+use Database\Factories\UserWardFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -35,7 +36,7 @@ use Illuminate\Support\Carbon;
  */
 final class UserWard extends Model
 {
-    /** @use HasFactory<\Database\Factories\UserWardFactory> */
+    /** @use HasFactory<UserWardFactory> */
     use HasFactory;
 
     use HasUuids;
@@ -99,5 +100,11 @@ final class UserWard extends Model
     public function usableFrom(int $cooldownHours): Carbon
     {
         return $this->created_at->copy()->addHours(max(0, $cooldownHours));
+    }
+
+    /** See User::newFactory() — the namespace-derived default does not exist. */
+    protected static function newFactory(): UserWardFactory
+    {
+        return UserWardFactory::new();
     }
 }

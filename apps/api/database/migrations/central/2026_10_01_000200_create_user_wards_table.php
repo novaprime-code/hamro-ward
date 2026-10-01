@@ -83,7 +83,7 @@ return new class extends Migration
          * What the trigger does buy is that no code path can skip the rule.
          */
         DB::unprepared(<<<'SQL'
-            CREATE FUNCTION user_wards_validate() RETURNS trigger
+            CREATE OR REPLACE FUNCTION user_wards_validate() RETURNS trigger
             LANGUAGE plpgsql AS $$
             DECLARE
                 unit admin_units%ROWTYPE;
@@ -118,14 +118,29 @@ return new class extends Migration
                             USING ERRCODE = 'check_violation';
                     END IF;
 
-                    SELECT count(*) INTO recent_count
-                      FROM user_wards
-                     WHERE user_id = NEW.user_id
-                       AND created_at > now() - interval '30 days';
+                    /*
+                     * Distinct WARDS in the window, and only when this ward is
+                     * new to this person.
+                     *
+                     * The cap exists to stop someone collecting wards in order
+                     * to post into them (§12.4 rule 3). Saying "I also work in
+                     * the ward I already live in" adds a row but no reach: they
+                     * could already report there. Counting rows instead of
+                     * wards refused that, which is a rule nobody wrote.
+                     */
+                    IF NOT EXISTS (
+                        SELECT 1 FROM user_wards
+                         WHERE user_id = NEW.user_id AND ward_id = NEW.ward_id
+                    ) THEN
+                        SELECT count(DISTINCT ward_id) INTO recent_count
+                          FROM user_wards
+                         WHERE user_id = NEW.user_id
+                           AND created_at > now() - interval '30 days';
 
-                    IF recent_count >= 3 THEN
-                        RAISE EXCEPTION 'user_wards: at most 3 wards added per 30 days'
-                            USING ERRCODE = 'check_violation';
+                        IF recent_count >= 3 THEN
+                            RAISE EXCEPTION 'user_wards: at most 3 wards added per 30 days'
+                                USING ERRCODE = 'check_violation';
+                        END IF;
                     END IF;
                 END IF;
 
