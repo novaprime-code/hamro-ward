@@ -1,8 +1,6 @@
 <?php
 
-declare(strict_types=1);
-
-use App\Models\User;
+use App\Modules\Accounts\Models\User;
 
 return [
 

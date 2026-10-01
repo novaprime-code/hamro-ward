@@ -2,6 +2,90 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-01 — Phase C: citizen account schema and saved wards
+
+The durable half of `HW-E30`. Not the authentication wiring — see "Not in this
+batch", which is the more important half of this entry.
+
+### Decided
+
+* **D-022: the saved-ward caps are database constraints, not only action
+  checks.** `12` §12.1 assigns the five-ward cap and the three-per-30-days cap
+  to the action layer. They are in a trigger as well, because a cap that lives
+  in one action is a cap the next code path does not have — an import, an admin
+  tool, a fixture, a future bulk edit. The action stays, because a
+  `QueryException` reaching a citizen as "something went wrong" is a cap that
+  works attached to an interface that cannot explain itself. The trigger makes
+  the rule true of the data; the action makes the refusal legible.
+  * The row count in a `BEFORE INSERT` trigger is not serialisable: two
+    concurrent inserts can each see four rows and proceed. Losing that race
+    needs two requests in the same millisecond from one account and costs one
+    extra saved ward. Noted in the migration rather than solved with row locks.
+* **D-023: removing the primary ward promotes nothing.** The account is left
+  with no primary. Promoting the next row would be the platform deciding where
+  somebody is from, silently, on the strength of row order — and an account
+  works perfectly well without a primary until its owner says.
+* **D-024: only a lived-in ward can be primary.** `permanent_address` and
+  `temporary_address` can; `workplace` and `other` cannot. A workplace is
+  somewhere you have standing to report on, not where you are from, and
+  defaulting someone's home ward to their office is wrong in a way they would
+  have to notice in order to correct it.
+
+### Code
+
+* `users` (central): uuid key, `citext` email so one address is one account
+  whatever the capitalisation, display name 2–60, locale, status
+  (`active` / `locked` / `deleted_pending`), two-factor columns, and
+  `password_reset_tokens` keyed by email — the request arrives before anyone is
+  identified, and the response has to look the same whether or not the address
+  exists (`12` §11.3).
+* `user_wards` (central): relationship enum, `is_primary` with a partial unique
+  index, `UNIQUE (user_id, ward_id, relationship)` so living and working in one
+  ward is two legitimate rows, and a trigger enforcing that the unit is a
+  **current ward** plus both caps.
+  * **No published requirement, deliberately** (`12` §12.2). A ward can be saved
+    before Hamro Ward opens in its municipality, and starts working on its own
+    when the tenant goes live. Refusing would tell a citizen their ward does not
+    exist, when the truth is that we have not got there yet.
+  * A ward closed by a later restructure keeps the rows already saved against
+    it; only new saves are refused. Removing them would quietly change what a
+    citizen told us about themselves.
+  * `created_at` is load-bearing, not bookkeeping: it is what the
+    `saved_wards_only` cooldown is measured from (`12` §12.4 rule 1).
+* `User` is deliberately **not** a `Person`. A Person holds or stood for office
+  — public, published, sourced. A User is a member of the public who signed up.
+  Separate tables with no link is what stops the platform ever quietly
+  asserting that a given account belongs to a given councillor.
+* **What the schema refuses to hold**, and must not grow: street, tole, house
+  number, GPS home location, citizenship or national ID number, date of birth,
+  phone. A ward is precise enough to route a report; anything finer turns a
+  civic platform into an address registry of people who complained about their
+  local government — a different and far more dangerous object, and one that a
+  change of operator, a subpoena or a breach hands to somebody else.
+* **Removed** Laravel's default `App\Models\User` and its factory stub, which
+  had been left behind when the default users migration was dropped. They
+  carried a `name` column that does not exist and sat outside
+  `app/Modules/*/Models`, where the architecture test cannot see them.
+  `config/auth.php` now points at the module model.
+
+### Not in this batch
+
+**None of the authentication.** `HW-E30-F01-T01` is a spike in the project's own
+plan: running Fortify for two guards through runtime config switching, with a
+documented fallback if it does not work (`12` §11.2). Fortify and Sanctum are
+not installed, so `auth:sanctum` does not exist and `/api/v1/me` has no
+middleware to sit behind.
+
+That half is config — session cookie names, guard and broker switching per
+host, `SANCTUM_STATEFUL_DOMAINS`, cookie scope. It fails in ways no syntax check
+catches, and the failures are the kind that matter: a citizen session accepted
+on the staff host, or a cookie scoped wide enough to travel. It needs someone
+who can run it, which is why the spike exists. It should not be written blind
+and handed over looking finished.
+
+The schema is the part that is expensive to change once there is live data in
+it, which is why it is the part that went first.
+
 ## 2026-10-01 — Phase A: the read path leads somewhere
 
 Two dead ends on the ward page, closed. A held seat linked to an anchor on the
