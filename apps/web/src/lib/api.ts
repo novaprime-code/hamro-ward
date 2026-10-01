@@ -49,9 +49,107 @@ export type Seat = {
   person: { slug: string; name: Bilingual } | null;
   party: { slug: string; name: Bilingual; abbreviation: Bilingual } | null;
   vacancy: { reason: string; since: string | null } | null;
+  /**
+   * Two or more sources disagree about one of this seat's fields.
+   *
+   * Separate from `state` on purpose: a holding can be verifiably real while
+   * the party it records is disputed. The row shows the value AND says the
+   * sources disagree.
+   */
+  has_source_conflict: boolean;
+  /**
+   * The record this seat's sources hang off, or null when nothing is recorded
+   * at all. Null and "recorded but unsourced" are different: the first has no
+   * page to show, the second has a page that says plainly there is no evidence
+   * yet.
+   */
+  evidence: EvidenceRef | null;
+};
+
+/** One hit from the search endpoint — an address, not a page's worth of content. */
+export type SearchHit = {
+  type: 'local_level' | 'ward';
+  slug_path: string;
+  /** Present on a ward hit; the client renders it in the reader's own digits. */
+  ward_number: number | null;
+  name: Bilingual;
+  local_level_type: LocalLevelType | null;
+  district: Bilingual;
+  province: Bilingual;
+};
+
+/** Every address the public site has a real page for, for the sitemap. */
+export type PublishedPath = {
+  slug_path: string;
+  updated_at: string | null;
+  wards: { number: number; updated_at: string | null }[];
 };
 
 export type Coverage = { total: number; held: number; vacant: number; not_verified: number };
+
+/**
+ * Where to read the working for one record (HW-E04-F02).
+ *
+ * `subject_type` is a stable key, not a class name, so a link a citizen shared
+ * keeps resolving across refactors.
+ */
+export type EvidenceRef = { subject_type: string; subject_id: string };
+
+export type EvidenceSource = {
+  source_id: string;
+  title: string;
+  publisher: string | null;
+  url: string | null;
+  source_type: {
+    key: string;
+    label: Bilingual;
+    /** 1 is the Election Commission; higher is less authoritative. */
+    authority_rank: number;
+  };
+  provenance_type: ProvenanceKind;
+  verification_status: 'unverified' | 'verified' | 'disputed' | 'rejected';
+  /** What THIS source says the value is — not necessarily what the site shows. */
+  asserted_value: string | null;
+  locator: string | null;
+  excerpt: string | null;
+  published_at: string | null;
+  retrieved_at: string | null;
+};
+
+export type ProvenanceKind =
+  | 'official'
+  | 'candidate_submitted'
+  | 'public_record'
+  | 'verified_community_report'
+  | 'community_report'
+  | 'media_report'
+  | 'ai_generated_summary'
+  | 'unverified_claim';
+
+export type EvidenceDetail = {
+  subject_type: string;
+  subject_id: string;
+  is_empty: boolean;
+  has_conflict: boolean;
+  /** Sources for the record as a whole. */
+  record: EvidenceSource[];
+  /** Sources for individual values, where disagreement lives. */
+  fields: { field_path: string; in_conflict: boolean; sources: EvidenceSource[] }[];
+};
+
+export type PersonDetail = {
+  slug: string;
+  name: Bilingual;
+  local_level: {
+    slug_path: string;
+    name: Bilingual;
+    type: LocalLevelType | null;
+    district: Bilingual;
+    province: Bilingual;
+  };
+  seats: Seat[];
+  evidence: EvidenceRef;
+};
 
 export type LocalLevelDetail = {
   slug_path: string;
@@ -113,6 +211,34 @@ async function get<T>(path: string, revalidate: number): Promise<ApiResult<T>> {
 }
 
 /**
+ * The same request, deliberately uncached.
+ *
+ * ISR keys on the URL, so caching a search would mint one cache entry per
+ * distinct query string — including every typo on the way to a real one. That
+ * cache only grows and is almost never hit twice, which is the worst shape a
+ * cache can have. The endpoint it fronts scans a few thousand rows and is
+ * cheaper than the entry would be.
+ */
+async function getUncached<T>(path: string): Promise<ApiResult<T>> {
+  try {
+    const response = await fetch(`${ORIGIN}/api/v1${path}`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return { ok: false, status: response.status };
+    }
+
+    const body = (await response.json()) as { data: T };
+
+    return { ok: true, data: body.data };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+}
+
+/**
  * Cached for five minutes. The list of municipalities changes when one is
  * onboarded, which is a deliberate act nobody is waiting on.
  */
@@ -132,9 +258,53 @@ export function fetchWard(path: string, ward: number): Promise<ApiResult<WardDet
   return get<WardDetail>(`/wards/${path}/${ward}`, 60);
 }
 
+/**
+ * The person behind a seat row. Same cache window as a ward: the two pages show
+ * the same holding from different directions and should not disagree about it.
+ */
+export function fetchPerson(path: string, slug: string): Promise<ApiResult<PersonDetail>> {
+  return get<PersonDetail>(`/persons/${path}/${encodeURIComponent(slug)}`, 60);
+}
+
+/**
+ * The sources behind one record.
+ *
+ * Cached for a minute, like the pages that link to it. Longer would be worse
+ * than it looks: the moment an editor verifies a source is exactly when someone
+ * is refreshing to see whether it took, and an evidence page that lags the seat
+ * state it explains is its own small credibility problem.
+ */
+export function fetchEvidence(
+  path: string,
+  subjectType: string,
+  subjectId: string,
+): Promise<ApiResult<EvidenceDetail>> {
+  return get<EvidenceDetail>(
+    `/evidence/${path}/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}`,
+    60,
+  );
+}
+
+/**
+ * Place search. Not cached: a query string is unbounded, and an ISR entry per
+ * distinct typo is a cache that only ever grows and never gets a hit.
+ */
+export async function fetchSearch(query: string): Promise<ApiResult<SearchHit[]>> {
+  return getUncached<SearchHit[]>(`/search?q=${encodeURIComponent(query)}`);
+}
+
+/**
+ * The sitemap feed. An hour, because a sitemap is read by crawlers on their own
+ * schedule and a municipality opening is not an event anyone is refreshing for.
+ */
+export function fetchPublishedPaths(): Promise<ApiResult<PublishedPath[]>> {
+  return get<PublishedPath[]>('/published-paths', 3600);
+}
+
 /** Either script, preferring the reader's own (§16). */
 export function pick(value: Bilingual, locale: string): string {
   const preferred = locale === 'en' ? value.en : value.ne;
 
   return preferred ?? value.en ?? value.ne ?? '';
 }
+

@@ -105,7 +105,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX admin_units_ancestor_ids ON admin_units USING gin (ancestor_ids)');
 
         DB::unprepared(<<<'SQL'
-            CREATE FUNCTION admin_units_enforce_hierarchy() RETURNS trigger
+            CREATE OR REPLACE FUNCTION admin_units_enforce_hierarchy() RETURNS trigger
             LANGUAGE plpgsql AS $$
             DECLARE
                 parent_row admin_units%ROWTYPE;

@@ -50,7 +50,6 @@ final class AdminUnit extends Model
     use HasFactory;
 
     use HasSourceLinks;
-
     use HasUuids;
     use UsesCentralConnection;
 
@@ -178,12 +177,26 @@ final class AdminUnit extends Model
     public function ancestorIds(): array
     {
         if ($this->exists && ! array_key_exists('ancestor_ids', $this->getAttributes())) {
-            $raw = self::query()->whereKey($this->getKey())->value('ancestor_ids');
+            /*
+             * Builder::value() runs the result through the model's casts, so
+             * this is already a list<string> — not the raw "{a,b}" the column
+             * holds. Feeding it back through setRawAttributes() would hand the
+             * cast an array to parse as a string, and PostgresUuidArray would
+             * return an empty list: the unit would look like it had no
+             * ancestors, which is the exact failure this method exists to
+             * prevent. setAttribute() applies the cast in the right direction.
+             */
+            /** @var list<string> $ids */
+            $ids = self::query()->whereKey($this->getKey())->value('ancestor_ids') ?? [];
 
-            $this->setRawAttributes(
-                array_merge($this->getAttributes(), ['ancestor_ids' => $raw]),
-                sync: true,
-            );
+            $this->setAttribute('ancestor_ids', $ids);
+
+            /*
+             * The column is maintained by the admin_units_hierarchy trigger.
+             * Loading it must not make the model dirty, or the next save()
+             * would write a database-owned column back from PHP.
+             */
+            $this->syncOriginalAttribute('ancestor_ids');
         }
 
         return $this->ancestor_ids;

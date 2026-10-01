@@ -5,9 +5,10 @@ import { CoverageLine } from '@/components/civic/coverage-line';
 import { SeatList } from '@/components/civic/seat-list';
 import { StateNotice } from '@/components/civic/state-notice';
 import { WardPlate } from '@/components/civic/ward-plate';
-import { isLocale } from '@/i18n/config';
+import { isLocale, formatNumber } from '@/i18n/config';
 import { getMessages, translator } from '@/i18n/messages';
 import { fetchWard, pick } from '@/lib/api';
+import { shareMetadata } from '@/lib/share-metadata';
 
 type PageParams = {
   locale: string;
@@ -21,19 +22,46 @@ export const revalidate = 60;
 
 export async function generateMetadata({ params }: { params: Promise<PageParams> }) {
   const { locale, province, district, localLevel, ward } = await params;
+
+  if (!isLocale(locale)) {
+    return {};
+  }
+
   const result = await fetchWard(`${province}/${district}/${localLevel}`, Number(ward));
 
   if (!result.ok) {
     return {};
   }
 
+  const t = translator(await getMessages(locale));
   const place = pick(result.data.local_level.name, locale);
+  const wardName = pick(result.data.name, locale);
+  const title = `${wardName} · ${place}`;
+  const path = `/${locale}/ward/${province}/${district}/${localLevel}/${ward}`;
+
+  /*
+   * The description is what a reader sees under the card in a chat app, and
+   * what a search engine shows. It states coverage rather than teasing: the
+   * page's honest claim is that it knows some of this ward's seats and not
+   * others, and the preview must not promise more than the page delivers
+   * (§7, §18).
+   */
+  const { held, total } = result.data.coverage;
+  const description =
+    total > 0
+      ? t('share.wardDescription', {
+          ward: wardName,
+          place,
+          held: formatNumber(held, locale),
+          total: formatNumber(total, locale),
+        })
+      : `${wardName}, ${place}`;
 
   return {
-    title: `${pick(result.data.name, locale)} · ${place}`,
-    alternates: {
-      canonical: `/${locale}/ward/${province}/${district}/${localLevel}/${ward}`,
-    },
+    title,
+    description,
+    alternates: { canonical: path },
+    ...shareMetadata({ locale, title, description, path, siteName: t('site.name') }),
   };
 }
 
@@ -82,7 +110,6 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
 
   const data = result.data;
   const place = data.local_level;
-  const basePath = `/${locale}/ward/${path}/${wardNumber}`;
 
   const wardSeats = data.seats.filter((seat) => seat.constituency_level === 'ward');
   const localLevelSeats = data.seats.filter((seat) => seat.constituency_level === 'local_level');
@@ -105,7 +132,7 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
           locale={locale}
           label={(confirmed, total) => `${confirmed}/${total} ${t('coverage.confirmed')}`}
         />
-        <SeatList seats={wardSeats} locale={locale} t={t} basePath={basePath} />
+        <SeatList seats={wardSeats} locale={locale} t={t} localLevelPath={path} />
       </section>
 
       {localLevelSeats.length === 0 ? null : (
@@ -118,7 +145,7 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
           <p className="text-sm text-muted-foreground">
             {t('ward.localLevelSeatsHelp').replace('{place}', pick(place.name, locale))}
           </p>
-          <SeatList seats={localLevelSeats} locale={locale} t={t} basePath={basePath} />
+          <SeatList seats={localLevelSeats} locale={locale} t={t} localLevelPath={path} />
         </section>
       )}
 

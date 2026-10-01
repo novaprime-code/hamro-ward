@@ -41,6 +41,20 @@ abstract class BaseSourceLink extends Model
     protected $table = 'source_links';
 
     /**
+     * The column defaults to 'unverified' in the database, but a model built
+     * in PHP does not learn that until it is reloaded — so a link read back
+     * straight after create() had a null verification status: neither
+     * verified nor unverified, just undefined. A piece of evidence is never
+     * allowed to be in no state at all (docs/05 §6), so the model states the
+     * same default the column does. The database remains the enforcement.
+     *
+     * @var array<string, string>
+     */
+    protected $attributes = [
+        'verification_status' => 'unverified',
+    ];
+
+    /**
      * Verification is applied through the verification workflow (HW-E17-F02),
      * never mass-assigned.
      *

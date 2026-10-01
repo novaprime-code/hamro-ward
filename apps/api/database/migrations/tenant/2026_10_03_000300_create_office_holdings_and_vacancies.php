@@ -133,7 +133,7 @@ return new class extends Migration
          * distinguishable from "that unit has no such seat".
          */
         DB::unprepared(<<<'SQL'
-            CREATE FUNCTION seat_reference_is_valid(
+            CREATE OR REPLACE FUNCTION seat_reference_is_valid(
                 p_position_key text,
                 p_constituency_id uuid,
                 p_seat_index smallint
@@ -185,7 +185,7 @@ return new class extends Migration
             END;
             $$;
 
-            CREATE FUNCTION office_holdings_validate() RETURNS trigger
+            CREATE OR REPLACE FUNCTION office_holdings_validate() RETURNS trigger
             LANGUAGE plpgsql AS $$
             BEGIN
                 PERFORM seat_reference_is_valid(NEW.position_key, NEW.constituency_id, NEW.seat_index);
@@ -206,7 +206,7 @@ return new class extends Migration
             END;
             $$;
 
-            CREATE FUNCTION vacancies_validate() RETURNS trigger
+            CREATE OR REPLACE FUNCTION vacancies_validate() RETURNS trigger
             LANGUAGE plpgsql AS $$
             BEGIN
                 PERFORM seat_reference_is_valid(NEW.position_key, NEW.constituency_id, NEW.seat_index);

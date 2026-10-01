@@ -37,6 +37,35 @@ final readonly class SeatRow
         public ?string $termLabel = null,
         public ?VacancyReason $vacancyReason = null,
         public ?Carbon $vacantFrom = null,
+        /**
+         * The record the evidence hangs off, so a page can link to it
+         * (HW-E04-F02).
+         *
+         * Until now the provenance badge said "official source" and linked
+         * nowhere, because the row carried the state a source implies but not
+         * the identifier of the thing the source is about. A claim a reader
+         * cannot follow is the kind this platform tells them not to accept.
+         *
+         * Null on a seat in the `not_verified` state with nothing recorded at
+         * all: there is no record, so there is nothing to show working for.
+         */
+        public ?string $officeHoldingId = null,
+        public ?string $vacancyId = null,
+        /**
+         * Two or more sources assert different values for some field of this
+         * seat's record (HW-E04-F02, project instructions §4).
+         *
+         * Separate from `state`, and it has to be. `state` answers "is this
+         * record backed by a verified source at all", which is a question about
+         * the holding as a whole. A disagreement lives on a FIELD — which party
+         * someone was elected for, when a term began — and a record can be
+         * verifiably real while one of its fields is disputed.
+         *
+         * Without this the ward page shows one value, badges it "official
+         * source", and says nothing about the disagreement: choosing silently,
+         * which is the one thing §4 forbids.
+         */
+        public bool $hasSourceConflict = false,
     ) {}
 
     public function title(string $locale = 'ne'): string
@@ -57,5 +86,27 @@ final readonly class SeatRow
     public function hasUnverifiedHolder(): bool
     {
         return $this->state === SeatState::NotVerified && $this->person !== null;
+    }
+
+    /**
+     * Which record to ask for evidence about, as a morph-map key and id.
+     *
+     * A holding takes precedence over a vacancy: if both exist for one seat the
+     * holding is the live fact, and the database's cross-table trigger means
+     * they cannot overlap in time anyway.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    public function evidenceSubject(): ?array
+    {
+        if ($this->officeHoldingId !== null) {
+            return ['office_holding', $this->officeHoldingId];
+        }
+
+        if ($this->vacancyId !== null) {
+            return ['vacancy', $this->vacancyId];
+        }
+
+        return null;
     }
 }

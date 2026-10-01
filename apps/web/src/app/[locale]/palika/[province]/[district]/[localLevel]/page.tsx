@@ -8,6 +8,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { formatNumber, isLocale } from '@/i18n/config';
 import { getMessages, translator } from '@/i18n/messages';
 import { fetchLocalLevel, pick } from '@/lib/api';
+import { shareMetadata } from '@/lib/share-metadata';
 import { cn } from '@/lib/utils';
 
 type PageParams = {
@@ -21,15 +22,31 @@ export const revalidate = 120;
 
 export async function generateMetadata({ params }: { params: Promise<PageParams> }) {
   const { locale, province, district, localLevel } = await params;
+
+  if (!isLocale(locale)) {
+    return {};
+  }
+
   const result = await fetchLocalLevel(`${province}/${district}/${localLevel}`);
 
   if (!result.ok) {
     return {};
   }
 
+  const t = translator(await getMessages(locale));
+  const title = pick(result.data.name, locale);
+  const path = `/${locale}/palika/${result.data.slug_path}`;
+  const description = t('share.localLevelDescription', {
+    place: title,
+    district: pick(result.data.district, locale),
+    wards: formatNumber(result.data.wards.length, locale),
+  });
+
   return {
-    title: pick(result.data.name, locale),
-    alternates: { canonical: `/${locale}/palika/${result.data.slug_path}` },
+    title,
+    description,
+    alternates: { canonical: path },
+    ...shareMetadata({ locale, title, description, path, siteName: t('site.name') }),
   };
 }
 
@@ -124,7 +141,7 @@ export default async function LocalLevelPage({ params }: { params: Promise<PageP
           seats={place.leadership}
           locale={locale}
           t={t}
-          basePath={`/${locale}/palika/${place.slug_path}`}
+          localLevelPath={place.slug_path}
         />
       </section>
     </div>

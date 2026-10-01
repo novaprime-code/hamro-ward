@@ -36,9 +36,23 @@ final class PersonFactory extends Factory
         $nameNe = self::GIVEN_NE[$index].' '.self::FAMILY_NE[$familyIndex];
 
         return [
-            'slug' => PersonSlug::for($nameEn),
             'full_name_ne' => $nameNe,
             'full_name_en' => $nameEn,
+            /*
+             * Derived from the name that actually ends up on the record, not
+             * from the one generated above: the closure receives the resolved
+             * attributes, so ->create(['full_name_en' => 'Ram Bahadur Thapa'])
+             * produces a matching slug. Listed after full_name_en because
+             * attributes resolve in order.
+             *
+             * It used to be computed from $nameEn directly, which meant every
+             * override kept the faker name's slug — and the test asserting
+             * that two people of the same name get distinct, name-derived
+             * URLs (docs/02 §7.2) was reading a slug built from neither name.
+             */
+            'slug' => fn (array $attributes): string => PersonSlug::for(
+                is_string($attributes['full_name_en'] ?? null) ? $attributes['full_name_en'] : null,
+            ),
             'is_published' => false,
             'published_at' => null,
         ];

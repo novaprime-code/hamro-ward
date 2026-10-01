@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Modules\Geography\Actions\PublishAdminUnit;
 use App\Modules\Geography\Enums\LocalLevelType;
 use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Geography\Models\TenantAdminUnit;
 use App\Modules\Offices\Models\TenantPosition;
 use App\Modules\Tenancy\Actions\CreateTenant;
 use App\Modules\Tenancy\Actions\DropTenantDatabase;
+use App\Modules\Tenancy\Actions\SyncTenantReferenceData;
 use App\Modules\Tenancy\Enums\TenantStatus;
 use App\Modules\Tenancy\Exceptions\ReferenceDataException;
 use App\Modules\Tenancy\Models\Tenant;
@@ -60,11 +62,69 @@ it('refuses anything that is not a local level', function (): void {
         ->toThrow(ReferenceDataException::class);
 });
 
-it('refuses an unpublished local level, whose wards would replicate invisible', function (): void {
+/*
+ * This replaces a test that asserted the opposite — that onboarding refuses
+ * an unpublished local level "whose wards would replicate invisible".
+ *
+ * Two parts of the codebase disagreed about this, both deliberately:
+ * CreateTenant's guard and that test required publication first, while
+ * CreateTenantCommandTest asserted a successful onboard leaves the unit
+ * unpublished, and docs/12 §4 and §6 treat the two as separate axes — an
+ * active tenant serves the public only "if the local level is_published",
+ * and an unpublished one 404s like any unknown place.
+ *
+ * Settled against the guard. Requiring publication first inverts the order
+ * of the work: a tenant has to exist before anyone can load the place's
+ * representatives, so the guard made every new municipality publicly visible
+ * while it was still empty — a live ward page reading "not yet verified" for
+ * however long the data took. On a platform whose premise is never showing a
+ * claim it cannot back, that is the wrong default.
+ *
+ * The replication concern was real, and is covered by the next test: the
+ * sync is re-runnable and does update publication.
+ */
+it('onboards an unpublished local level without publishing it', function (): void {
     $localLevel = AdminUnit::factory()->localLevel()->create();
 
-    expect(fn () => app(CreateTenant::class)->handle($localLevel))
-        ->toThrow(ReferenceDataException::class);
+    $tenant = app(CreateTenant::class)->handle($localLevel);
+
+    try {
+        expect($tenant->status)->toBe(TenantStatus::Active)
+            ->and($localLevel->refresh()->is_published)->toBeFalse();
+    } finally {
+        app(DropTenantDatabase::class)->handle($tenant);
+    }
+});
+
+it('propagates publication into the tenant when the reference data is synced again', function (): void {
+    $localLevel = AdminUnit::factory()->localLevel()->create();
+    AdminUnit::factory()->ward(1)->childOf($localLevel)->create();
+
+    $tenant = app(CreateTenant::class)->handle($localLevel);
+
+    try {
+        // Onboarded while unpublished: the tenant's copy says so too.
+        app(TenantManager::class)->run($tenant, function (): void {
+            expect(TenantAdminUnit::query()->where('is_published', true)->count())->toBe(0);
+        });
+
+        // Publishing is top-down (D-006), so the chain goes first.
+        $publish = app(PublishAdminUnit::class);
+
+        foreach ($localLevel->ancestors() as $ancestor) {
+            $publish->publish($ancestor);
+        }
+
+        $publish->publish($localLevel->refresh());
+        app(SyncTenantReferenceData::class)->handle($tenant->refresh());
+
+        // After the documented re-sync the wards are visible inside the tenant.
+        app(TenantManager::class)->run($tenant, function (): void {
+            expect(TenantAdminUnit::query()->where('is_published', true)->count())->toBeGreaterThan(0);
+        });
+    } finally {
+        app(DropTenantDatabase::class)->handle($tenant);
+    }
 });
 
 it('refuses a second tenant for the same local level', function (): void {

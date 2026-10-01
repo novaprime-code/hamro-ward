@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { SeatRow } from '@/components/civic/seat-row';
 import { StateNotice } from '@/components/civic/state-notice';
 import { pick } from '@/lib/api';
@@ -21,17 +23,28 @@ import type { Locale } from '@/i18n/config';
  *
  * Every row uses the same template whatever the party: no colour, no ordering
  * advantage, no emphasis (NFR-NEU-01, NFR-NEU-02).
+ *
+ * Both destinations are built here rather than passed in, because both are
+ * derived from the same municipality path and getting them out of step would
+ * mean a seat linking to one municipality's person and another's sources.
  */
 export function SeatList({
   seats,
   locale,
   t,
-  basePath,
+  localLevelPath,
+  linkPeople = true,
 }: {
   seats: Seat[];
   locale: Locale;
   t: (key: string) => string;
-  basePath: string;
+  /** e.g. `koshi/sunsari/koshara` — the address both links hang off. */
+  localLevelPath: string;
+  /**
+   * False on a person's own page, where linking each of their seats back to
+   * the page the reader is already on is a loop, not navigation.
+   */
+  linkPeople?: boolean;
 }) {
   if (seats.length === 0) {
     return (
@@ -45,11 +58,12 @@ export function SeatList({
     <div>
       {seats.map((seat) => (
         <Seat
-          key={`${seat.position_key}-${seat.seat_index}-${seat.constituency_level}`}
+          key={`${seat.position_key}-${seat.seat_index}-${seat.constituency_level}-${seat.ward_number ?? 0}`}
           seat={seat}
           locale={locale}
           t={t}
-          basePath={basePath}
+          localLevelPath={localLevelPath}
+          linkPeople={linkPeople}
         />
       ))}
     </div>
@@ -60,14 +74,26 @@ function Seat({
   seat,
   locale,
   t,
-  basePath,
+  localLevelPath,
+  linkPeople,
 }: {
   seat: Seat;
   locale: Locale;
   t: (key: string) => string;
-  basePath: string;
+  localLevelPath: string;
+  linkPeople: boolean;
 }) {
   const role = pick(seat.title, locale);
+
+  /*
+   * Where a reader checks this seat. Present even on an unverified seat: the
+   * page then says plainly that nothing backs it yet, which is more useful
+   * than a badge that refuses to explain itself.
+   */
+  const evidenceHref =
+    seat.evidence === null
+      ? undefined
+      : `/${locale}/source/${localLevelPath}/${seat.evidence.subject_type}/${seat.evidence.subject_id}`;
 
   if (seat.state === 'vacant') {
     return (
@@ -79,6 +105,9 @@ function Seat({
         <StateNotice tone="neutral" title={t('state.vacant')}>
           {t(`vacancy.${seat.vacancy?.reason ?? 'other'}`)}
         </StateNotice>
+        {evidenceHref === undefined ? null : (
+          <SourcesLink href={evidenceHref} label={t('evidence.seeSources')} />
+        )}
       </div>
     );
   }
@@ -106,9 +135,27 @@ function Seat({
       role={role}
       name={name}
       party={party}
-      href={seat.person === null ? basePath : `${basePath}#${seat.position_key}-${seat.seat_index}`}
+      href={
+        seat.person === null || !linkPeople
+          ? null
+          : `/${locale}/person/${localLevelPath}/${seat.person.slug}`
+      }
       provenance={seat.state === 'held' ? 'official' : 'unverified_claim'}
       provenanceLabel={seat.state === 'held' ? t('provenance.official') : t('state.notVerified')}
+      evidenceHref={evidenceHref}
+      conflictLabel={seat.has_source_conflict ? t('evidence.conflictShort') : undefined}
     />
+  );
+}
+
+/** The same destination as the badge, for the rows that have no badge. */
+function SourcesLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      className="mt-2 inline-flex min-h-9 items-center text-sm underline underline-offset-4"
+      href={href}
+    >
+      {label}
+    </Link>
   );
 }

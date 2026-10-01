@@ -37,10 +37,17 @@ final class TenantSourceLink extends BaseSourceLink
     ];
 
     /**
-     * @var array<string, mixed>
+     * Redeclaring $attributes REPLACES the parent's rather than merging with
+     * it, so BaseSourceLink's verification_status default has to be repeated
+     * here or tenant links come up with a null verification status — on the
+     * side of the system that holds ward-page evidence, which is the side
+     * where it matters most. Any default added to the parent belongs here too.
+     *
+     * @var array<string, string>
      */
     protected $attributes = [
         'source_scope' => 'tenant',
+        'verification_status' => 'unverified',
     ];
 
     /**
@@ -70,7 +77,7 @@ final class TenantSourceLink extends BaseSourceLink
         return Source::query()->find($this->source_id);
     }
 
-    public function resolveSource(): BaseSource|null
+    public function resolveSource(): ?BaseSource
     {
         return $this->source_scope === SourceScope::Central
             ? $this->centralSource()
