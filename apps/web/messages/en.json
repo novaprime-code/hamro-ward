@@ -142,5 +142,6 @@
   "search.submit": "Search",
   "search.empty": "Nothing matched “{query}”",
   "search.emptyHelp": "Try part of the name instead. Or your municipality may not be open on Hamro Ward yet — we add them one at a time.",
-  "footer.reportError": "Found a mistake?"
+  "footer.reportError": "Found a mistake?",
+  "evidence.conflictShort": "Sources disagree"
 }

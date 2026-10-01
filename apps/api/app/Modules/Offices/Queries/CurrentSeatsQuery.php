@@ -167,6 +167,7 @@ final class CurrentSeatsQuery
     {
         $people = $this->peopleFor($rows->pluck('person_id')->filter()->unique()->values()->all());
         $parties = $this->partiesFor($rows->pluck('party_id')->filter()->unique()->values()->all());
+        $conflicts = $this->conflictedSubjects($rows);
 
         return $rows->map(fn (stdClass $row): SeatRow => new SeatRow(
             constituencyId: (string) $row->constituency_id,
@@ -190,7 +191,50 @@ final class CurrentSeatsQuery
             vacantFrom: $row->vacant_from === null ? null : Carbon::parse((string) $row->vacant_from),
             officeHoldingId: $row->office_holding_id === null ? null : (string) $row->office_holding_id,
             vacancyId: $row->vacancy_id === null ? null : (string) $row->vacancy_id,
+            hasSourceConflict: isset($conflicts[(string) ($row->office_holding_id ?? $row->vacancy_id ?? '')]),
         ));
+    }
+
+    /**
+     * Which of these seats have a field their sources disagree about.
+     *
+     * One grouped query for the whole page, not one per seat. A disagreement is
+     * defined the same way the evidence page defines it — two or more DISTINCT
+     * asserted values for one field — because a seat row that flags a conflict
+     * and an evidence page that shows none would be worse than neither.
+     *
+     * Corroboration is not conflict: two sources saying the same thing must not
+     * raise a warning, or the marker stops meaning anything.
+     *
+     * @param  Collection<int, stdClass>  $rows
+     * @return array<string, true>  keyed by holding or vacancy id
+     */
+    private function conflictedSubjects(Collection $rows): array
+    {
+        $ids = $rows
+            ->flatMap(fn (stdClass $row): array => [$row->office_holding_id, $row->vacancy_id])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->db
+            ->connection((string) config('tenancy.tenant_connection'))
+            ->table('source_links')
+            ->whereIn('subject_type', ['office_holding', 'vacancy'])
+            ->whereIn('subject_id', $ids)
+            ->whereNotNull('field_path')
+            ->whereNotNull('asserted_value')
+            ->groupBy('subject_id', 'field_path')
+            ->havingRaw('count(DISTINCT asserted_value) > 1')
+            ->pluck('subject_id')
+            ->flip()
+            ->map(fn (): bool => true)
+            ->all();
     }
 
     /**

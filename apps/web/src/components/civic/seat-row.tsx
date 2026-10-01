@@ -26,6 +26,7 @@ export function SeatRow({
   provenance,
   provenanceLabel,
   evidenceHref,
+  conflictLabel,
 }: {
   role: string;
   name: string;
@@ -36,6 +37,8 @@ export function SeatRow({
   provenanceLabel: string;
   /** The sources page for this seat, when a record exists to have sources. */
   evidenceHref?: string;
+  /** Rendered when the sources disagree about one of this seat's fields. */
+  conflictLabel?: string;
 }) {
   const body = (
     <>
@@ -63,7 +66,16 @@ export function SeatRow({
         </Link>
       )}
 
-      <ProvenanceBadge type={provenance} label={provenanceLabel} href={evidenceHref} />
+      <div className="flex flex-wrap items-center gap-2">
+        <ProvenanceBadge type={provenance} label={provenanceLabel} href={evidenceHref} />
+
+        {/* Said next to the value it is about, not buried on the evidence page.
+            A reader who sees a party under an "official source" badge and is not
+            told the sources disagree has been given a silent choice (§4). */}
+        {conflictLabel === undefined ? null : (
+          <ProvenanceBadge type="unverified_claim" label={conflictLabel} href={evidenceHref} />
+        )}
+      </div>
     </div>
   );
 }

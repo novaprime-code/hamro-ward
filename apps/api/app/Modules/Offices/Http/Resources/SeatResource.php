@@ -61,6 +61,17 @@ final class SeatResource extends JsonResource
                 'since' => $seat->vacantFrom?->toDateString(),
             ],
             /*
+             * Sources disagree about one of this seat's fields.
+             *
+             * Deliberately separate from `state`: a holding can be verifiably
+             * real while the party it records is disputed. The client shows the
+             * value AND the disagreement, because printing one party under an
+             * "official source" badge with nothing said about the other is
+             * choosing silently — the one thing §4 forbids.
+             */
+            'has_source_conflict' => $seat->hasSourceConflict,
+
+            /*
              * Where to read the working. The badge on a seat row used to say
              * "official source" and go nowhere; this is the address of the
              * record the sources are attached to, so the client can link to it
