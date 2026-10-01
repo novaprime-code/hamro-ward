@@ -40,11 +40,13 @@ final class DemoGuard
 
     private function assertNotProduction(): void
     {
-        if (!$this->app->environment('production')) {
+        if (! $this->app->environment('production')) {
             return;
         }
 
-        if (filter_var(env('HW_ALLOW_DEMO_DATA', false), FILTER_VALIDATE_BOOL)) {
+        // config/demo.php, not env() — see the note there, and ArchTest's
+        // "no environment checks outside config".
+        if (config('demo.allow_in_production') === true) {
             return;
         }
 

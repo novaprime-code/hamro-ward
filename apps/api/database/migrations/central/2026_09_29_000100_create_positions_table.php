@@ -88,7 +88,7 @@ return new class extends Migration
          * v_current_seats would quietly stop generating them.
          */
         DB::unprepared(<<<'SQL'
-            CREATE FUNCTION positions_validate_seat_counts() RETURNS trigger
+            CREATE OR REPLACE FUNCTION positions_validate_seat_counts() RETURNS trigger
             LANGUAGE plpgsql AS $$
             DECLARE
                 declared text[];

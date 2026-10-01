@@ -83,10 +83,30 @@ it('falls back to the municipality when that ward is not published', function ()
 });
 
 it('does not treat a leading number as a ward', function (): void {
-    // Only a trailing number is a ward number. Guessing otherwise would answer
-    // a different question from the one asked.
-    $this->getJson('/api/v1/search?q='.urlencode('4 koshara'))->assertOk();
-})->throwsNoExceptions();
+    /*
+     * Only a trailing number is a ward number. Guessing otherwise would answer
+     * a different question from the one asked.
+     *
+     * This previously asserted nothing but a 200 and was marked
+     * throwsNoExceptions(), so it passed whatever the endpoint decided to do
+     * with a leading number — including routing straight to ward 4.
+     */
+    $results = searchPaths('4 koshara');
+
+    expect($results)->toContain('koshi/sunsari/koshara')
+        ->and($results)->not->toContain('koshi/sunsari/koshara/4');
+});
+
+it('still finds the municipality when a Devanagari number leads', function (): void {
+    // "४ कोशारा" is how a reader who thinks in "४ नम्बर वडा" starts typing.
+    // The number is not specific enough to route on, but the name is not in
+    // doubt, and answering "we may not cover your municipality" would be
+    // untrue.
+    $results = searchPaths('४ कोशारा');
+
+    expect($results)->toContain('koshi/sunsari/koshara')
+        ->and($results)->not->toContain('koshi/sunsari/koshara/4');
+});
 
 it('returns nothing for an empty query rather than everything', function (): void {
     expect($this->getJson('/api/v1/search?q=')->assertOk()->json('data'))->toBe([]);

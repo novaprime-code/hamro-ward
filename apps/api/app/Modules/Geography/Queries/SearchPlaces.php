@@ -9,6 +9,7 @@ use App\Modules\Geography\Support\Digits;
 use App\Modules\Geography\Support\NameNormalizer;
 use App\Modules\Tenancy\Enums\TenantStatus;
 use App\Modules\Tenancy\Models\Tenant;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -47,9 +48,9 @@ final class SearchPlaces
     private const LIMIT = 12;
 
     /**
-     * @return Collection<int, array<string, mixed>>  ranked; each row has
-     *                                                type, slug_path, names and
-     *                                                (for a ward) its number
+     * @return Collection<int, array<string, mixed>> ranked; each row has
+     *                                               type, slug_path, names and
+     *                                               (for a ward) its number
      */
     public function handle(string $query): Collection
     {
@@ -69,6 +70,27 @@ final class SearchPlaces
         $places = $text === ''
             ? $this->everyOpenLocalLevel()
             : $this->matchLocalLevels($text);
+
+        /*
+         * A leading number is not a ward number — split() explains why — but
+         * it is still part of the text the trigram runs against, and
+         * "4 koshara" scores too far below the floor to match "koshara".
+         * The reader then gets the empty state, which tells them their
+         * municipality may not be on Hamro Ward yet. That is a false
+         * statement about our own coverage, and it is the one thing a
+         * search box here must never say.
+         *
+         * So when the strict read finds nothing and the query opened with a
+         * standalone number, try the rest of the text. This still does not
+         * route to a ward: answering a question the reader did not ask is
+         * the thing split() is avoiding, and "४ नम्बर वडा, कोशारा" names a
+         * municipality unambiguously but a ward only by guess. Because it
+         * runs only on an empty result, it can never displace a match the
+         * strict read already found.
+         */
+        if ($places->isEmpty() && preg_match('/^\d{1,2}[\s,\-]+(.+)$/u', $text, $leading) === 1) {
+            $places = $this->matchLocalLevels(trim($leading[1]));
+        }
 
         if ($places->isEmpty()) {
             return collect();
@@ -130,7 +152,7 @@ final class SearchPlaces
     }
 
     /**
-     * @return Collection<int, object>  raw rows, mapped to the public shape last
+     * @return Collection<int, object> raw rows, mapped to the public shape last
      */
     private function matchLocalLevels(string $text): Collection
     {
@@ -183,10 +205,8 @@ final class SearchPlaces
      * Joined to admin_unit_slugs rather than rebuilt from parent slugs, because
      * the slug path is a stored fact with a history — rebuilding it here would
      * produce a URL that disagrees with the one the redirect table knows about.
-     *
-     * @return \Illuminate\Database\Query\Builder
      */
-    private function openLocalLevels(): \Illuminate\Database\Query\Builder
+    private function openLocalLevels(): Builder
     {
         $tenanted = Tenant::query()
             ->where('status', TenantStatus::Active->value)

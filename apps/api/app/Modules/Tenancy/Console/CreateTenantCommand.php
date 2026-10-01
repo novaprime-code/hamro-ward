@@ -54,7 +54,7 @@ final class CreateTenantCommand extends Command
                 ->count(),
         );
 
-        if (!$this->option('force') && !$this->confirm('Create a database for this local level?', true)) {
+        if (! $this->option('force') && ! $this->confirm('Create a database for this local level?', true)) {
             $this->components->warn('Nothing was created.');
 
             return self::SUCCESS;
@@ -75,6 +75,21 @@ final class CreateTenantCommand extends Command
         $this->components->twoColumnDetail('Schema version', (string) $tenant->schema_version);
         $this->components->twoColumnDetail('Reference version', (string) $tenant->reference_version);
 
+        /*
+         * Onboarding does not publish (D-006), so say what is still true:
+         * the tenant is live and the place is not public. Left unsaid, an
+         * operator reads "active" as "people can see it" and either panics
+         * about empty data or waits for traffic that cannot arrive.
+         */
+        if (! $localLevel->is_published) {
+            $this->newLine();
+            $this->components->warn('Not public yet — the local level is unpublished.');
+            $this->line('  Load and verify its representatives first, then publish it.');
+            $this->line('  Publishing updates the central record only, so re-run');
+            $this->line("  <options=bold>hw:tenant:sync-reference {$tenant->tenant_key}</> afterwards,");
+            $this->line('  or the wards stay flagged unpublished inside the tenant.');
+        }
+
         return self::SUCCESS;
     }
 
@@ -94,7 +109,7 @@ final class CreateTenantCommand extends Command
             return AdminUnit::query()->find($slug->admin_unit_id);
         }
 
-        if (!str_contains($path, '/')) {
+        if (! str_contains($path, '/')) {
             return AdminUnit::query()
                 ->where('level', AdminLevel::LocalLevel->value)
                 ->where('slug', $path)

@@ -32,6 +32,18 @@ abstract class BaseFactConflict extends Model
     protected $table = 'fact_conflicts';
 
     /**
+     * As on BaseSourceLink: the column defaults to 'open' in the database,
+     * and a freshly created model did not reflect it, so isOpen() answered
+     * false on a conflict that had just been recorded. A conflict that does
+     * not read as open is a conflict nothing will act on.
+     *
+     * @var array<string, string>
+     */
+    protected $attributes = [
+        'status' => 'open',
+    ];
+
+    /**
      * @var list<string>
      */
     protected $fillable = [

@@ -79,20 +79,34 @@ final class CreateTenant
             );
         }
 
-        if (!$localLevel->isCurrent()) {
+        if (! $localLevel->isCurrent()) {
             throw ReferenceDataException::misconfiguredTenant(
                 $localLevel->slug,
                 'the local level was closed on '.(string) $localLevel->valid_to?->toDateString(),
             );
         }
 
-        if (!$localLevel->is_published) {
-            throw ReferenceDataException::misconfiguredTenant(
-                $localLevel->slug,
-                'publish the local level and its ancestors first, or its wards will replicate as invisible',
-            );
-        }
-
+        /*
+         * Publication is deliberately NOT required here.
+         *
+         * Onboarding is infrastructure; publication is editorial readiness
+         * (D-006). docs/12 §4 makes them separate axes — an active tenant
+         * serves the public "if the local level is_published" — and §6 has
+         * an unpublished local level return 404 like any unknown one.
+         *
+         * Requiring publication first inverted the only sane order of work.
+         * A municipality has to exist as a tenant before anyone can load its
+         * representatives and their sources, so the gate forced every new
+         * place to go publicly visible while it was still empty: a live ward
+         * page with nothing on it but "not yet verified", for as long as the
+         * data took. Publishing late is the whole point of an editorial flag.
+         *
+         * The concern the gate was written for is real but recoverable:
+         * SyncTenantReferenceData copies is_published into the tenant, so a
+         * local level published after onboarding has stale wards until
+         * `hw:tenant:sync-reference` runs. That is a documented command and
+         * the onboarding output says so, rather than this refusing the work.
+         */
         $existing = Tenant::query()->where('admin_unit_id', $localLevel->id)->first();
 
         if ($existing !== null) {

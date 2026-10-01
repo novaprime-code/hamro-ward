@@ -105,7 +105,7 @@ return new class extends Migration
             SQL);
 
         DB::unprepared(<<<'SQL'
-            CREATE FUNCTION source_links_local_source_exists() RETURNS trigger
+            CREATE OR REPLACE FUNCTION source_links_local_source_exists() RETURNS trigger
             LANGUAGE plpgsql AS $$
             BEGIN
                 IF NEW.source_scope = 'tenant'

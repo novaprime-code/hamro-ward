@@ -20,7 +20,7 @@ return new class extends Migration
             SQL);
 
         DB::unprepared(<<<'SQL'
-            CREATE FUNCTION tenants_require_local_level() RETURNS trigger
+            CREATE OR REPLACE FUNCTION tenants_require_local_level() RETURNS trigger
             LANGUAGE plpgsql AS $$
             BEGIN
                 IF (SELECT level FROM admin_units WHERE id = NEW.admin_unit_id) IS DISTINCT FROM 'local_level' THEN

@@ -23,8 +23,10 @@ it('seeds the source hierarchy with unique ranks, highest authority first', func
     expect($ranked)->toHaveCount(10)
         ->and($ranked[0])->toBe(SourceTypeKey::Ecn->value)
         ->and(end($ranked))->toBe(SourceTypeKey::SocialMedia->value)
+        // Builder::value() applies the model's casts, so this is the enum
+        // case itself and not its backing string.
         ->and(SourceType::query()->where('key', SourceTypeKey::SocialMedia->value)->value('default_provenance_type'))
-        ->toBe(ProvenanceType::UnverifiedClaim->value);
+        ->toBe(ProvenanceType::UnverifiedClaim);
 });
 
 it('requires a link or an uploaded document on every source', function (): void {
