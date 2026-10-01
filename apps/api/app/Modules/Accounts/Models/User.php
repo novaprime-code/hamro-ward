@@ -6,6 +6,7 @@ namespace App\Modules\Accounts\Models;
 
 use App\Modules\Accounts\Enums\UserStatus;
 use App\Modules\Tenancy\Models\Concerns\UsesCentralConnection;
+use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -40,7 +41,7 @@ use Illuminate\Notifications\Notifiable;
  */
 final class User extends Authenticatable implements MustVerifyEmailContract
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory;
 
     use HasUuids;
@@ -118,5 +119,17 @@ final class User extends Authenticatable implements MustVerifyEmailContract
     public function scopeActive(Builder $query): void
     {
         $query->where('status', UserStatus::Active->value);
+    }
+
+    /**
+     * Required, like every other model in this codebase that lives under
+     * app/Modules. HasFactory derives the factory from the model's namespace —
+     * App\Modules\Accounts\Models\User becomes
+     * Database\Factories\Modules\Accounts\Models\UserFactory, which does not
+     * exist. Without this, every test using the factory dies on a class-not-found.
+     */
+    protected static function newFactory(): UserFactory
+    {
+        return UserFactory::new();
     }
 }

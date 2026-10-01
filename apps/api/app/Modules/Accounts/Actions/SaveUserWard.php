@@ -113,16 +113,29 @@ final class SaveUserWard
         }
 
         /*
-         * A rolling 30 days, not a calendar month. The oldest of the recent
-         * additions is what the window turns on, so the refusal can say when it
-         * clears rather than leaving a citizen to guess (§12.4 rule 3).
+         * The 30-day cap counts distinct WARDS, and only applies when this ward
+         * is new to this person.
+         *
+         * The cap exists to stop someone collecting wards in order to post into
+         * them (§12.4 rule 3). Saying "I also work in the ward I already live
+         * in" adds a row but no reach — they could already report there — so
+         * counting rows refuses something the rule never meant to.
          */
+        $alreadySaved = $user->wards()->where('ward_id', $wardId)->exists();
+
+        if ($alreadySaved) {
+            return;
+        }
+
+        // A rolling 30 days, not a calendar month. The oldest addition in the
+        // window is what it turns on, so the refusal can say when it clears
+        // rather than leaving a citizen to guess.
         $recent = $user->wards()
             ->where('created_at', '>', now()->subDays(30))
             ->orderBy('created_at')
             ->get();
 
-        if ($recent->count() >= self::MAX_PER_30_DAYS) {
+        if ($recent->unique('ward_id')->count() >= self::MAX_PER_30_DAYS) {
             throw WardLimitReached::tooManyRecently(
                 self::MAX_PER_30_DAYS,
                 $recent->first()->created_at->addDays(30)->toIso8601String(),

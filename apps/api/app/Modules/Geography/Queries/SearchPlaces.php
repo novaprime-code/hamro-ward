@@ -59,6 +59,13 @@ final class SearchPlaces
             return collect();
         }
 
+        /*
+         * Raw rows, not the public shape, because the ward lookup below needs
+         * the local level's id — and the public shape deliberately does not
+         * carry one. Mapping first and plucking 'id' afterwards silently yields
+         * nulls, which turns every "<name> <number>" query into a municipality
+         * result: the ward routing looks implemented and never fires.
+         */
         $places = $text === ''
             ? $this->everyOpenLocalLevel()
             : $this->matchLocalLevels($text);
@@ -83,7 +90,7 @@ final class SearchPlaces
             }
         }
 
-        return $places->take(self::LIMIT)->values();
+        return $this->rows($places->take(self::LIMIT));
     }
 
     /**
@@ -119,11 +126,11 @@ final class SearchPlaces
      */
     private function everyOpenLocalLevel(): Collection
     {
-        return $this->rows($this->openLocalLevels()->orderBy('u.name_en')->limit(self::LIMIT)->get());
+        return $this->openLocalLevels()->orderBy('u.name_en')->limit(self::LIMIT)->get();
     }
 
     /**
-     * @return Collection<int, array<string, mixed>>
+     * @return Collection<int, object>  raw rows, mapped to the public shape last
      */
     private function matchLocalLevels(string $text): Collection
     {
@@ -143,7 +150,7 @@ final class SearchPlaces
          * columns: it is where legacy names, misspellings and romanizations
          * live, already normalized, already indexed (docs/05 §3.3).
          */
-        $rows = $this->openLocalLevels()
+        return $this->openLocalLevels()
             ->leftJoin('admin_unit_aliases as a', 'a.admin_unit_id', '=', 'u.id')
             ->selectRaw(
                 'greatest(
@@ -167,8 +174,6 @@ final class SearchPlaces
             ->orderBy('u.name_en')
             ->limit(self::LIMIT)
             ->get();
-
-        return $this->rows($rows);
     }
 
     /**
