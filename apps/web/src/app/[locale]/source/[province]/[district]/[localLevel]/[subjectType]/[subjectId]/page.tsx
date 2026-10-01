@@ -37,6 +37,16 @@ export async function generateMetadata({ params }: { params: Promise<PageParams>
     description,
     alternates: { canonical: href },
     ...shareMetadata({ locale, title, description, path: href, siteName: t('site.name') }),
+    /*
+     * Not indexed, but followed and shareable.
+     *
+     * The address carries a uuid, so as a search result it is meaningless to a
+     * reader — and there is one of these per record, which would swamp the ward
+     * pages that should be found. Sharing still works: Open Graph tags are read
+     * regardless of noindex, and this page being shareable is the whole reason
+     * it is a page rather than a dialog (D-021).
+     */
+    robots: { index: false, follow: true },
   };
 }
 

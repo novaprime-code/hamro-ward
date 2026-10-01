@@ -138,9 +138,9 @@
   "search.link": "Search",
   "search.title": "Find your municipality or ward",
   "search.help": "Type the name of a municipality. If you know your ward number, put it after the name — for example “Koshara 4”.",
-  "search.placeholder": "Municipality name, or name and ward number",
+  "search.placeholder": "For example: Koshara 4",
   "search.submit": "Search",
-  "search.empty": "Nothing matched that",
-  "search.emptyHelp": "Try part of the name, or add the district. We add municipalities one at a time, so yours may not be open yet.",
+  "search.empty": "Nothing matched “{query}”",
+  "search.emptyHelp": "Try part of the name instead. Or your municipality may not be open on Hamro Ward yet — we add them one at a time.",
   "footer.reportError": "Found a mistake?"
 }

@@ -299,3 +299,4 @@ export function pick(value: Bilingual, locale: string): string {
 
   return preferred ?? value.en ?? value.ne ?? '';
 }
+
