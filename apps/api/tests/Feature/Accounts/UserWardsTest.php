@@ -92,6 +92,31 @@ it('allows the same ward under two different relationships', function (): void {
     expect($user->wards()->count())->toBe(2);
 });
 
+it('does not count a second relationship on a saved ward toward the 30-day cap', function (): void {
+    /*
+     * Found by running this against a real database. The cap counted ROWS, so
+     * "I also work in the ward I already live in" spent one of the three — a
+     * rule nobody wrote. The cap exists to stop someone collecting wards in
+     * order to post into them, and a ward you already have gives no new reach.
+     */
+    $wards = wardsForAccount(4);
+    $user = User::factory()->create();
+    $save = app(SaveUserWard::class);
+
+    $save->handle($user, $wards[0]->id, WardRelationship::PermanentAddress);
+    $save->handle($user, $wards[1]->id, WardRelationship::Other);
+
+    // Same ward again, different relationship — a row, but not a new ward.
+    $save->handle($user, $wards[0]->id, WardRelationship::Workplace);
+
+    // So the third DISTINCT ward is still allowed.
+    expect($save->handle($user, $wards[2]->id, WardRelationship::Other)->exists)->toBeTrue();
+
+    // And the fourth is not.
+    expect(fn () => $save->handle($user, $wards[3]->id, WardRelationship::Other))
+        ->toThrow(WardLimitReached::class);
+});
+
 it('refuses the same ward twice under one relationship', function (): void {
     [$ward] = wardsForAccount();
     $user = User::factory()->create();
