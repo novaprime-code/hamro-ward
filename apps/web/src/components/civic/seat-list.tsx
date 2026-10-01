@@ -143,6 +143,7 @@ function Seat({
       provenance={seat.state === 'held' ? 'official' : 'unverified_claim'}
       provenanceLabel={seat.state === 'held' ? t('provenance.official') : t('state.notVerified')}
       evidenceHref={evidenceHref}
+      conflictLabel={seat.has_source_conflict ? t('evidence.conflictShort') : undefined}
     />
   );
 }

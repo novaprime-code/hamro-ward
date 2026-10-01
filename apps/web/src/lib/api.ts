@@ -50,6 +50,14 @@ export type Seat = {
   party: { slug: string; name: Bilingual; abbreviation: Bilingual } | null;
   vacancy: { reason: string; since: string | null } | null;
   /**
+   * Two or more sources disagree about one of this seat's fields.
+   *
+   * Separate from `state` on purpose: a holding can be verifiably real while
+   * the party it records is disputed. The row shows the value AND says the
+   * sources disagree.
+   */
+  has_source_conflict: boolean;
+  /**
    * The record this seat's sources hang off, or null when nothing is recorded
    * at all. Null and "recorded but unsourced" are different: the first has no
    * page to show, the second has a page that says plainly there is no evidence

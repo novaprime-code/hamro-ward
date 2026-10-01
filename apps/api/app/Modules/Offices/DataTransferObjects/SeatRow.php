@@ -51,6 +51,21 @@ final readonly class SeatRow
          */
         public ?string $officeHoldingId = null,
         public ?string $vacancyId = null,
+        /**
+         * Two or more sources assert different values for some field of this
+         * seat's record (HW-E04-F02, project instructions §4).
+         *
+         * Separate from `state`, and it has to be. `state` answers "is this
+         * record backed by a verified source at all", which is a question about
+         * the holding as a whole. A disagreement lives on a FIELD — which party
+         * someone was elected for, when a term began — and a record can be
+         * verifiably real while one of its fields is disputed.
+         *
+         * Without this the ward page shows one value, badges it "official
+         * source", and says nothing about the disagreement: choosing silently,
+         * which is the one thing §4 forbids.
+         */
+        public bool $hasSourceConflict = false,
     ) {}
 
     public function title(string $locale = 'ne'): string
