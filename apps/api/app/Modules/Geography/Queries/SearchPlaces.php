@@ -5,270 +5,262 @@ declare(strict_types=1);
 namespace App\Modules\Geography\Queries;
 
 use App\Modules\Geography\Enums\AdminLevel;
-use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Geography\Support\Digits;
 use App\Modules\Geography\Support\NameNormalizer;
 use App\Modules\Tenancy\Enums\TenantStatus;
 use App\Modules\Tenancy\Models\Tenant;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
- * "Where do I live?", answered from whatever a person actually types
- * (HW-E09-F01, FR-GEO-07).
+ * "Find your ward" (HW-E09, FR-GEO-07).
  *
- * The picker on the home page filters a list the browser already has, which is
- * right for choosing between four municipalities and wrong for the question
- * people actually arrive with. Nobody thinks "I will select my municipality and
- * then my ward". They think "Itahari 4", or "इटहरी ४", or "itahari-4", and they
- * type that.
+ * The one question the whole site is organised around, and the picker only
+ * half answers it: it filters a list the browser already has, which works at
+ * four municipalities and stops working at 753 — both because the payload gets
+ * large on a connection that is already slow, and because substring matching
+ * fails on the way Nepali place names are actually typed.
  *
- * So a trailing number is treated as a ward number, in either script, and the
- * rest as a place name. "कोशारा ४" lands on ward 4 of Koshara. "koshara" lands
- * on the municipality. Both are one query away from the page they wanted rather
- * than two.
+ * Three things this handles that a `LIKE '%needle%'` does not:
  *
- * ---------------------------------------------------------------------------
- * Why this scans rather than using a search engine
+ *  1. **Spelling.** Itahari, इटहरी, Ithari, Itahary. Names are matched on the
+ *     normalized alias column, which has a trigram index, so a near miss still
+ *     finds the place (docs/06 §5).
+ *  2. **Digits in either script.** "इटहरी ४" and "itahari 4" are the same
+ *     query. A ward number typed on a phone is usually Latin; the same number
+ *     on the office sign is Devanagari.
+ *  3. **The ward itself.** A trailing number is not noise to be stripped — it
+ *     is the most specific thing in the query. "इटहरी ४" means ward 4, and
+ *     landing the reader on the ward rather than the municipality saves the one
+ *     tap that the entire product is about.
  *
- * D-005 P5 replaced Meilisearch with PostgreSQL for v0/v1, and at Nepal's
- * actual size that is not a compromise. The country has 7 provinces, 77
- * districts, 753 local levels and roughly 6,743 wards — the entire searchable
- * universe is under eight thousand rows and will not grow, because it is the
- * administrative structure of a country rather than a content table. A filter
- * across it costs less than the round trip that delivered the query.
- *
- * The trigram index on admin_unit_aliases still earns its place: it is what
- * catches a misspelling or an older name, which is the case a LIKE cannot help
- * with (R5).
- * ---------------------------------------------------------------------------
+ * Search is central-only and covers places, not people. Person names live
+ * behind a per-municipality database, and a national search over the names of
+ * elected officials is a different feature with different consequences — it
+ * wants deciding on rather than falling out of a geography query.
  */
 final class SearchPlaces
 {
-    /** Below this, a trigram match is noise rather than a near-miss. */
+    /** Below this, a trigram match is noise rather than a near miss. */
     private const SIMILARITY_FLOOR = 0.3;
 
-    private const MAX_RESULTS = 20;
+    private const LIMIT = 12;
 
     /**
-     * @return Collection<int, array<string, mixed>>
+     * @return Collection<int, array<string, mixed>>  ranked; each row has
+     *                                                type, slug_path, names and
+     *                                                (for a ward) its number
      */
     public function handle(string $query): Collection
     {
-        [$namePart, $wardNumber] = $this->split($query);
+        [$text, $wardNumber] = $this->split($query);
 
-        if ($namePart === '' && $wardNumber === null) {
+        if ($text === '' && $wardNumber === null) {
             return collect();
         }
 
-        $openLocalLevelIds = Tenant::query()
-            ->where('status', TenantStatus::Active->value)
-            ->pluck('admin_unit_id');
+        $places = $text === ''
+            ? $this->everyOpenLocalLevel()
+            : $this->matchLocalLevels($text);
 
-        if ($openLocalLevelIds->isEmpty()) {
+        if ($places->isEmpty()) {
             return collect();
         }
-
-        $localLevels = $this->matchingLocalLevels($namePart, $openLocalLevelIds->all());
-
-        if ($localLevels->isEmpty()) {
-            return collect();
-        }
-
-        $results = $localLevels
-            ->map(fn (array $match): array => [
-                'type' => 'local_level',
-                'score' => $match['score'],
-                'unit' => $match['unit'],
-                'ward_number' => null,
-            ])
-            ->all();
 
         /*
-         * A number turns every matching municipality into a ward result as
-         * well, not instead. Someone typing "4" after a half-remembered name
-         * may have the name slightly wrong, and dropping the municipality row
-         * would leave them with nothing to correct towards.
+         * A ward number turns each matching municipality into a ward result
+         * where that ward is actually published, and leaves it as a
+         * municipality where it is not. Silently dropping the number would
+         * send the reader somewhere they did not ask for; silently inventing
+         * ward 4 of a municipality whose ward 4 is not published would send
+         * them to a 404.
          */
         if ($wardNumber !== null) {
-            foreach ($this->wardsOf($localLevels, $wardNumber) as $ward) {
-                $results[] = [
-                    'type' => 'ward',
-                    // Above its own municipality: they asked for the ward.
-                    'score' => $ward['score'] + 5,
-                    'unit' => $ward['unit'],
-                    'ward_number' => $wardNumber,
-                ];
+            $wards = $this->wardsOf($places->pluck('id')->all(), $wardNumber);
+
+            if ($wards->isNotEmpty()) {
+                return $wards->take(self::LIMIT)->values();
             }
         }
 
-        return collect($results)
-            ->sortByDesc('score')
-            ->take(self::MAX_RESULTS)
-            ->values();
+        return $places->take(self::LIMIT)->values();
     }
 
     /**
-     * Splits "कोशारा ४" into a name and a ward number.
+     * Splits "इटहरी ४" into a name and a ward number.
      *
-     * Only a TRAILING number counts. A leading or middle one is part of the
-     * name — "ward 4 office" is not a search for ward 4 of a place called
-     * "office" — and several local levels have digits in their names.
+     * Only a TRAILING number counts. A leading or embedded one is part of the
+     * name as often as not, and guessing wrong here means quietly answering a
+     * different question from the one asked.
      *
      * @return array{0: string, 1: int|null}
      */
     private function split(string $query): array
     {
-        $latin = Digits::toLatin(trim($query));
+        $text = trim(Digits::toLatin($query));
 
-        if (preg_match('/^(.*?)[\s,\-–/]*(\d{1,2})$/u', $latin, $matches) === 1) {
+        if (preg_match('/^(.*?)[\s,\-]*?(\d{1,2})$/u', $text, $matches) === 1) {
             $number = (int) $matches[2];
 
-            // Ward numbers run 1–99 (the admin_units CHECK). A trailing 0 or a
-            // year is not a ward, so the whole string stays a name.
-            if ($number >= 1 && $number <= 99 && trim($matches[1]) !== '') {
-                return [NameNormalizer::normalize($matches[1]), $number];
+            if ($number >= 1 && $number <= 99) {
+                return [trim($matches[1]), $number];
             }
         }
 
-        return [NameNormalizer::normalize($latin), null];
+        return [$text, null];
     }
 
     /**
-     * @param  list<string>  $openLocalLevelIds
-     * @return Collection<int, array{unit: AdminUnit, score: int}>
+     * Local levels that are published, current, and have an active tenant —
+     * the same bar the picker uses, because a search result that leads to a 503
+     * reads as a broken site rather than as a municipality that is not ready.
+     *
+     * @return Collection<int, array<string, mixed>>
      */
-    private function matchingLocalLevels(string $needle, array $openLocalLevelIds): Collection
+    private function everyOpenLocalLevel(): Collection
     {
-        $units = AdminUnit::query()
-            ->publiclyVisible()
-            ->where('level', AdminLevel::LocalLevel->value)
-            ->whereIn('id', $openLocalLevelIds)
-            ->with(['parent.parent'])
-            ->get();
+        return $this->rows($this->openLocalLevels()->orderBy('u.name_en')->limit(self::LIMIT)->get());
+    }
 
-        // An empty name with a ward number ("4" alone) is not a search — it
-        // would return every municipality's ward 4 in the country.
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function matchLocalLevels(string $text): Collection
+    {
+        $needle = NameNormalizer::normalize($text);
+
         if ($needle === '') {
             return collect();
         }
 
-        $aliasMatches = $this->aliasMatches($needle, $openLocalLevelIds);
-
-        return $units
-            ->map(function (AdminUnit $unit) use ($needle, $aliasMatches): ?array {
-                $score = $this->score($unit, $needle, $aliasMatches);
-
-                return $score === 0 ? null : ['unit' => $unit, 'score' => $score];
-            })
-            ->filter()
-            ->values();
-    }
-
-    /**
-     * Scores one municipality against the needle.
-     *
-     * The ladder is deliberate: an exact name beats a prefix, a prefix beats a
-     * substring, and a real name beats an alias — because an alias is by
-     * definition the name something used to have, or a way people get it wrong,
-     * and neither should outrank what the place is actually called today (R5).
-     *
-     * @param  array<string, float>  $aliasMatches  admin_unit_id => similarity
-     */
-    private function score(AdminUnit $unit, string $needle, array $aliasMatches): int
-    {
-        $names = array_filter([
-            NameNormalizer::normalize((string) $unit->name_ne),
-            NameNormalizer::normalize((string) $unit->name_en),
-        ]);
-
-        foreach ($names as $name) {
-            if ($name === $needle) {
-                return 100;
-            }
-        }
-
-        foreach ($names as $name) {
-            if (str_starts_with($name, $needle)) {
-                return 80;
-            }
-        }
-
-        foreach ($names as $name) {
-            if (str_contains($name, $needle)) {
-                return 60;
-            }
-        }
-
-        if (str_starts_with($unit->slug, $needle)) {
-            return 55;
-        }
-
-        if (isset($aliasMatches[$unit->id])) {
-            // 30–50, by how close the alias was.
-            return 30 + (int) round($aliasMatches[$unit->id] * 20);
-        }
-
-        return 0;
-    }
-
-    /**
-     * Older names, variants and known misspellings, via the trigram index
-     * (R5, docs/05 §3.2).
-     *
-     * This is the only part of the search that needs an index and the only part
-     * that can forgive a typo. `%` uses pg_trgm's similarity threshold; the
-     * explicit similarity() in the select is what lets a near-miss rank below a
-     * close one rather than all aliases scoring alike.
-     *
-     * @param  list<string>  $openLocalLevelIds
-     * @return array<string, float>
-     */
-    private function aliasMatches(string $needle, array $openLocalLevelIds): array
-    {
-        if ($openLocalLevelIds === []) {
-            return [];
-        }
-
-        return AdminUnit::query()
-            ->getConnection()
-            ->table('admin_unit_aliases')
-            ->selectRaw('admin_unit_id, max(similarity(normalized, ?)) as score', [$needle])
-            ->whereIn('admin_unit_id', $openLocalLevelIds)
-            ->whereRaw('similarity(normalized, ?) > ?', [$needle, self::SIMILARITY_FLOOR])
-            ->groupBy('admin_unit_id')
-            ->pluck('score', 'admin_unit_id')
-            ->map(fn ($score): float => (float) $score)
-            ->all();
-    }
-
-    /**
-     * The published ward of that number in each matching municipality.
-     *
-     * A municipality with fewer wards than the number asked for simply produces
-     * no ward row. Inventing one would send a reader to a 404 from a search
-     * result, which reads as the site being broken rather than as the ward not
-     * existing.
-     *
-     * @param  Collection<int, array{unit: AdminUnit, score: int}>  $localLevels
-     * @return list<array{unit: AdminUnit, score: int}>
-     */
-    private function wardsOf(Collection $localLevels, int $wardNumber): array
-    {
-        $byParent = $localLevels->keyBy(fn (array $match): string => $match['unit']->id);
-
-        $wards = AdminUnit::query()
-            ->publiclyVisible()
-            ->where('level', AdminLevel::Ward->value)
-            ->where('ward_number', $wardNumber)
-            ->whereIn('parent_id', $byParent->keys()->all())
-            ->with(['parent.parent.parent'])
+        /*
+         * Ranked by the best trigram similarity among the unit's aliases, with
+         * a prefix match on either name treated as a certainty. `similarity`
+         * and the GIN index come from pg_trgm, which the tenant template
+         * already installs.
+         *
+         * The alias table is the right thing to match on rather than the name
+         * columns: it is where legacy names, misspellings and romanizations
+         * live, already normalized, already indexed (docs/05 §3.3).
+         */
+        $rows = $this->openLocalLevels()
+            ->leftJoin('admin_unit_aliases as a', 'a.admin_unit_id', '=', 'u.id')
+            ->selectRaw(
+                'greatest(
+                    coalesce(max(similarity(a.normalized, ?)), 0),
+                    case when lower(u.name_ne) like ? or lower(u.name_en) like ? or u.slug like ? then 1 else 0 end
+                ) as score',
+                [$needle, $needle.'%', $needle.'%', $needle.'%'],
+            )
+            ->groupBy(
+                'u.id', 'u.slug', 'u.name_ne', 'u.name_en', 'u.local_level_type', 's.slug_path',
+                'd.name_ne', 'd.name_en', 'pr.name_ne', 'pr.name_en',
+            )
+            ->havingRaw(
+                'greatest(
+                    coalesce(max(similarity(a.normalized, ?)), 0),
+                    case when lower(u.name_ne) like ? or lower(u.name_en) like ? or u.slug like ? then 1 else 0 end
+                ) >= ?',
+                [$needle, $needle.'%', $needle.'%', $needle.'%', self::SIMILARITY_FLOOR],
+            )
+            ->orderByDesc('score')
+            ->orderBy('u.name_en')
+            ->limit(self::LIMIT)
             ->get();
 
-        return $wards
-            ->map(fn (AdminUnit $ward): array => [
-                'unit' => $ward,
-                'score' => $byParent[$ward->parent_id]['score'],
-            ])
+        return $this->rows($rows);
+    }
+
+    /**
+     * The shared base: published, current, tenanted local levels with their
+     * current slug path.
+     *
+     * Joined to admin_unit_slugs rather than rebuilt from parent slugs, because
+     * the slug path is a stored fact with a history — rebuilding it here would
+     * produce a URL that disagrees with the one the redirect table knows about.
+     *
+     * @return \Illuminate\Database\Query\Builder
+     */
+    private function openLocalLevels(): \Illuminate\Database\Query\Builder
+    {
+        $tenanted = Tenant::query()
+            ->where('status', TenantStatus::Active->value)
+            ->pluck('admin_unit_id')
             ->all();
+
+        return DB::connection((string) config('tenancy.central_connection'))
+            ->table('admin_units as u')
+            ->join('admin_unit_slugs as s', function ($join): void {
+                $join->on('s.admin_unit_id', '=', 'u.id')->where('s.is_current', true);
+            })
+            ->leftJoin('admin_units as d', 'd.id', '=', 'u.parent_id')
+            ->leftJoin('admin_units as pr', 'pr.id', '=', 'd.parent_id')
+            ->where('u.level', AdminLevel::LocalLevel->value)
+            ->where('u.is_published', true)
+            ->whereNull('u.valid_to')
+            ->whereIn('u.id', $tenanted === [] ? [''] : $tenanted)
+            ->select(
+                'u.id', 'u.slug', 'u.name_ne', 'u.name_en', 'u.local_level_type', 's.slug_path',
+                'd.name_ne as district_ne', 'd.name_en as district_en',
+                'pr.name_ne as province_ne', 'pr.name_en as province_en',
+            );
+    }
+
+    /**
+     * @param  list<string>  $localLevelIds
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function wardsOf(array $localLevelIds, int $wardNumber): Collection
+    {
+        if ($localLevelIds === []) {
+            return collect();
+        }
+
+        return DB::connection((string) config('tenancy.central_connection'))
+            ->table('admin_units as w')
+            ->join('admin_units as p', 'p.id', '=', 'w.parent_id')
+            ->join('admin_unit_slugs as s', function ($join): void {
+                $join->on('s.admin_unit_id', '=', 'p.id')->where('s.is_current', true);
+            })
+            ->where('w.level', AdminLevel::Ward->value)
+            ->where('w.ward_number', $wardNumber)
+            ->where('w.is_published', true)
+            ->whereNull('w.valid_to')
+            ->whereIn('w.parent_id', $localLevelIds)
+            ->orderBy('p.name_en')
+            ->leftJoin('admin_units as d', 'd.id', '=', 'p.parent_id')
+            ->leftJoin('admin_units as pr', 'pr.id', '=', 'd.parent_id')
+            ->select(
+                'w.ward_number', 'p.name_ne', 'p.name_en', 'p.local_level_type', 's.slug_path',
+                'd.name_ne as district_ne', 'd.name_en as district_en',
+                'pr.name_ne as province_ne', 'pr.name_en as province_en',
+            )
+            ->get()
+            ->map(fn (object $row): array => [
+                'type' => 'ward',
+                'slug_path' => $row->slug_path,
+                'ward_number' => (int) $row->ward_number,
+                'name' => ['ne' => $row->name_ne, 'en' => $row->name_en],
+                'local_level_type' => $row->local_level_type,
+                'district' => ['ne' => $row->district_ne, 'en' => $row->district_en],
+                'province' => ['ne' => $row->province_ne, 'en' => $row->province_en],
+            ]);
+    }
+
+    /**
+     * @param  Collection<int, object>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function rows(Collection $rows): Collection
+    {
+        return $rows->map(fn (object $row): array => [
+            'type' => 'local_level',
+            'slug_path' => $row->slug_path,
+            'ward_number' => null,
+            'name' => ['ne' => $row->name_ne, 'en' => $row->name_en],
+            'local_level_type' => $row->local_level_type,
+            'district' => ['ne' => $row->district_ne, 'en' => $row->district_en],
+            'province' => ['ne' => $row->province_ne, 'en' => $row->province_en],
+        ]);
     }
 }

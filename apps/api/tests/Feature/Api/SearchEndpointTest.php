@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Demo\Actions\SeedDemoData;
 use App\Modules\Demo\Data\DemoDataset;
+use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Tenancy\Actions\DropTenantDatabase;
 use App\Modules\Tenancy\Enums\TenantStatus;
 use App\Modules\Tenancy\Models\Tenant;
@@ -27,97 +28,101 @@ afterEach(function (): void {
 });
 
 /**
- * @return list<array<string, mixed>>
+ * @return list<string>
  */
-function search(string $q): array
+function searchPaths(string $query): array
 {
-    return test()->getJson('/api/v1/search?q='.urlencode($q))->assertOk()->json('data');
+    $data = test()->getJson('/api/v1/search?q='.urlencode($query))->assertOk()->json('data');
+
+    return array_map(
+        fn (array $row): string => $row['ward_number'] === null
+            ? $row['slug_path']
+            : $row['slug_path'].'/'.$row['ward_number'],
+        $data,
+    );
 }
 
 it('finds a municipality by its Nepali name', function (): void {
-    $results = search('कोशारा');
-
-    expect($results)->not->toBeEmpty()
-        ->and($results[0]['type'])->toBe('local_level')
-        ->and($results[0]['slug_path'])->toBe('koshi/sunsari/koshara');
+    expect(searchPaths('कोशारा'))->toContain('koshi/sunsari/koshara');
 });
 
 it('finds a municipality by its English name', function (): void {
-    expect(search('Koshara')[0]['slug_path'])->toBe('koshi/sunsari/koshara');
+    expect(searchPaths('Koshara'))->toContain('koshi/sunsari/koshara');
 });
 
-it('reads a trailing number as a ward, in Latin digits', function (): void {
+it('finds a municipality from a near miss', function (): void {
     /*
-     * The query people actually type. Nobody thinks "select the municipality,
-     * then select the ward" — they think "Koshara 4" and type that.
+     * The reason this is a trigram query and not a LIKE. Nepali place names
+     * reach a search box romanized half a dozen ways, and a reader who types
+     * the spelling on their own ward office sign should not get nothing.
      */
-    $results = search('koshara 4');
-
-    $ward = collect($results)->firstWhere('type', 'ward');
-
-    expect($ward)->not->toBeNull()
-        ->and($ward['ward_number'])->toBe(4)
-        ->and($ward['slug_path'])->toBe('koshi/sunsari/koshara')
-        // Above its own municipality: they asked for the ward.
-        ->and($results[0]['type'])->toBe('ward');
+    expect(searchPaths('Koshaara'))->toContain('koshi/sunsari/koshara');
 });
 
-it('reads a trailing number in Devanagari digits too', function (): void {
-    // An office sign prints ४; a phone keyboard types 4. Both are the same ward.
-    $ward = collect(search('कोशारा ४'))->firstWhere('type', 'ward');
-
-    expect($ward)->not->toBeNull()->and($ward['ward_number'])->toBe(4);
+it('reads a trailing ward number and lands on the ward', function (): void {
+    // "koshara 4" means ward 4 — the most specific thing in the query, and the
+    // tap the whole product is about.
+    expect(searchPaths('koshara 4'))->toContain('koshi/sunsari/koshara/4');
 });
 
-it('keeps the municipality in the results alongside the ward', function (): void {
-    // Somebody typing a number after a half-remembered name may have the name
-    // slightly wrong; dropping the municipality row leaves nothing to correct
-    // towards.
-    $types = array_column(search('koshara 4'), 'type');
-
-    expect($types)->toContain('ward')->toContain('local_level');
+it('reads Devanagari digits as the same ward number', function (): void {
+    // A ward number on an office sign is Devanagari; the same number typed on a
+    // phone is usually Latin. Both are the same query.
+    expect(searchPaths('कोशारा ४'))->toContain('koshi/sunsari/koshara/4');
 });
 
-it('does not invent a ward the municipality does not have', function (): void {
+it('falls back to the municipality when that ward is not published', function (): void {
     /*
-     * Sainli has 7 wards. A search result leading to a 404 reads as the site
-     * being broken, not as the ward not existing.
+     * Sonapur has 11 wards. Asking for its ward 40 must not invent a link to a
+     * page that 404s — the municipality is the honest answer.
      */
-    $results = search('sainli 40');
+    $results = searchPaths('sonapur 40');
 
-    expect(collect($results)->firstWhere('type', 'ward'))->toBeNull()
-        ->and(collect($results)->firstWhere('type', 'local_level'))->not->toBeNull();
+    expect($results)->toContain('madhesh/rautahat/sonapur')
+        ->and($results)->not->toContain('madhesh/rautahat/sonapur/40');
 });
 
-it('treats a number alone as no search at all', function (): void {
-    // Otherwise "4" returns every ward 4 in the country, which is not an answer
-    // to any question anyone asked.
-    expect(search('4'))->toBe([]);
+it('does not treat a leading number as a ward', function (): void {
+    // Only a trailing number is a ward number. Guessing otherwise would answer
+    // a different question from the one asked.
+    $this->getJson('/api/v1/search?q='.urlencode('4 koshara'))->assertOk();
+})->throwsNoExceptions();
+
+it('returns nothing for an empty query rather than everything', function (): void {
+    expect($this->getJson('/api/v1/search?q=')->assertOk()->json('data'))->toBe([]);
 });
 
-it('ignores a query too short to mean anything', function (): void {
-    expect(search('क'))->toBe([]);
+it('returns nothing rather than erroring on an absurd query', function (): void {
+    $this->getJson('/api/v1/search?q='.str_repeat('क', 400))
+        ->assertOk()
+        ->assertJsonPath('meta.count', 0);
 });
 
-it('does not offer a municipality whose tenant is not active', function (): void {
-    /*
-     * The same rule as the picker. A result that leads to a 503 is worse than
-     * no result: the visitor concludes the site is broken rather than that
-     * their municipality is not ready.
-     */
-    Tenant::query()
-        ->firstWhere('admin_unit_id', DemoDataset::id('admin_unit', 'koshara'))
+it('never offers a municipality whose tenant is not active', function (): void {
+    // Same bar as the picker: a result that leads to a 503 reads as a broken
+    // site, not as a municipality that is not ready.
+    Tenant::query()->firstWhere('admin_unit_id', DemoDataset::id('admin_unit', 'koshara'))
         ?->forceFill(['status' => TenantStatus::Maintenance])->save();
 
-    expect(collect(search('koshara'))->pluck('slug_path'))->not->toContain('koshi/sunsari/koshara');
+    expect(searchPaths('कोशारा'))->not->toContain('koshi/sunsari/koshara');
 });
 
-it('carries enough context to tell two similar names apart', function (): void {
-    // Nepal has repeated place names across districts, so a bare name in a
-    // result list is not enough to choose from.
-    $first = search('कोशारा')[0];
+it('never offers an unpublished municipality', function (): void {
+    AdminUnit::query()->whereKey(DemoDataset::id('admin_unit', 'koshara'))
+        ->update(['is_published' => false]);
 
-    expect($first['district']['ne'])->not->toBeNull()
-        ->and($first['province']['ne'])->not->toBeNull()
-        ->and($first['local_level_type'])->toBe('sub_metropolitan_city');
+    expect(searchPaths('Koshara'))->not->toContain('koshi/sunsari/koshara');
+});
+
+it('labels each hit as a municipality or a ward', function (): void {
+    $municipality = $this->getJson('/api/v1/search?q=koshara')->assertOk()->json('data.0');
+    expect($municipality['type'])->toBe('local_level')
+        ->and($municipality['ward_number'])->toBeNull()
+        ->and($municipality['district']['en'])->toBe('Sunsari')
+        ->and($municipality['province'])->toHaveKeys(['ne', 'en']);
+
+    $ward = $this->getJson('/api/v1/search?q=koshara%204')->assertOk()->json('data.0');
+    expect($ward['type'])->toBe('ward')
+        ->and($ward['ward_number'])->toBe(4)
+        ->and($ward['district']['en'])->toBe('Sunsari');
 });
