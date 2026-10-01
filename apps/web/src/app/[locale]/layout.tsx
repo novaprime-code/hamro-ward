@@ -7,6 +7,7 @@ import { SiteFooter } from '@/components/layout/site-footer';
 import { SiteHeader } from '@/components/layout/site-header';
 import { isLocale } from '@/i18n/config';
 import { getMessages, translator } from '@/i18n/messages';
+import { operator } from '@/lib/operator';
 import { siteUrl } from '@/lib/site';
 import { resolveTheme } from '@/lib/theme';
 
@@ -104,7 +105,12 @@ export default async function LocaleLayout({
     <html lang={locale} data-theme={theme} className={`${anek.variable} ${noto.variable}`}>
       <body className="min-h-dvh bg-background text-foreground">
         <BetaBanner message={t('beta.banner')} />
-        <SiteHeader locale={locale} siteName={t('site.name')} switchLabel={t('locale.switch')} />
+        <SiteHeader
+          locale={locale}
+          siteName={t('site.name')}
+          switchLabel={t('locale.switch')}
+          searchLabel={t('search.link')}
+        />
         <main className="mx-auto w-full max-w-[var(--content-width)] px-4 pb-16">{children}</main>
         <SiteFooter
           links={[
@@ -112,8 +118,25 @@ export default async function LocaleLayout({
             { href: `/${locale}/sources`, label: t('footer.sources') },
             { href: `/${locale}/privacy`, label: t('footer.privacy') },
           ]}
+          corrections={corrections(locale, t('footer.reportError'))}
         />
       </body>
     </html>
   );
+}
+
+/**
+ * Where "report an error" goes.
+ *
+ * A mailto once the operator has an address, and the Sources page until then —
+ * which explains what a correction needs to be useful and says plainly that
+ * there is no address yet. Both are better than a link that silently does
+ * nothing (D-003 G1).
+ */
+function corrections(locale: string, label: string): { href: string; label: string; external: boolean } {
+  const email = operator().correctionsEmail;
+
+  return email === null
+    ? { href: `/${locale}/sources#corrections-heading`, label, external: false }
+    : { href: `mailto:${email}`, label, external: true };
 }

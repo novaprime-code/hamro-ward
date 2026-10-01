@@ -134,5 +134,13 @@
   "evidence.field.name_ne": "नाम (नेपाली)",
   "evidence.field.name_en": "नाम (अंग्रेजी)",
   "share.personDescription": "{name} — {role}, {place}। हरेक तथ्यसँग त्यसको स्रोत।",
-  "evidence.field.generic": "एउटा विवरणबारे"
+  "evidence.field.generic": "एउटा विवरणबारे",
+  "search.link": "खोज्नुहोस्",
+  "search.title": "आफ्नो पालिका वा वडा खोज्नुहोस्",
+  "search.help": "पालिकाको नाम लेख्नुहोस्। वडा नम्बर थाहा छ भने नामपछि नम्बर पनि राख्न सक्नुहुन्छ — जस्तै “कोशारा ४”।",
+  "search.placeholder": "जस्तै: कोशारा ४",
+  "search.submit": "खोज्नुहोस्",
+  "search.empty": "“{query}” सँग मिल्दो केही भेटिएन",
+  "search.emptyHelp": "नामको केही अक्षर मात्र राखेर हेर्नुहोस्। वा तपाईंको पालिका हाम्रो वडामा अझै नखुलेको हुन सक्छ — हामी एक-एक गरी थप्दैछौँ।",
+  "footer.reportError": "गल्ती भेट्नुभयो?"
 }

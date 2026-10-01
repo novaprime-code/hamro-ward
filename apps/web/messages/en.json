@@ -134,5 +134,13 @@
   "evidence.field.name_ne": "Name (Nepali)",
   "evidence.field.name_en": "Name (English)",
   "share.personDescription": "{name} — {role}, {place}. Every fact shown with its source.",
-  "evidence.field.generic": "About one detail"
+  "evidence.field.generic": "About one detail",
+  "search.link": "Search",
+  "search.title": "Find your municipality or ward",
+  "search.help": "Type the name of a municipality. If you know your ward number, put it after the name — for example “Koshara 4”.",
+  "search.placeholder": "For example: Koshara 4",
+  "search.submit": "Search",
+  "search.empty": "Nothing matched “{query}”",
+  "search.emptyHelp": "Try part of the name instead. Or your municipality may not be open on Hamro Ward yet — we add them one at a time.",
+  "footer.reportError": "Found a mistake?"
 }
