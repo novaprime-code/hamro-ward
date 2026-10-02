@@ -5,6 +5,7 @@ use App\Modules\Auth\Providers\AuthServiceProvider;
 use App\Modules\Demo\Providers\DemoServiceProvider;
 use App\Modules\Offices\Providers\OfficesServiceProvider;
 use App\Modules\Provenance\Providers\ProvenanceServiceProvider;
+use App\Modules\Staff\Providers\StaffServiceProvider;
 use App\Modules\Support\Providers\SecurityServiceProvider;
 use App\Modules\Tenancy\Providers\TenancyConsoleServiceProvider;
 use App\Modules\Tenancy\Providers\TenancyServiceProvider;
@@ -14,7 +15,8 @@ use App\Providers\AppServiceProvider;
 | Order matters twice here:
 |  - TenancyServiceProvider binds the tenant connections everything else uses.
 |  - ProvenanceServiceProvider starts the morph map; OfficesServiceProvider
-|    merges its subject types into it.
+|    and StaffServiceProvider merge into it, so both must come after it —
+|    enforceMorphMap REPLACES the map, so an earlier entry would be dropped.
 |
 | SecurityServiceProvider defines the named rate limiters the API routes refer
 | to, so it has to be registered before routing resolves 'throttle:public-read'.
@@ -31,5 +33,6 @@ return [
     TenancyConsoleServiceProvider::class,
     ProvenanceServiceProvider::class,
     OfficesServiceProvider::class,
+    StaffServiceProvider::class,
     DemoServiceProvider::class,
 ];

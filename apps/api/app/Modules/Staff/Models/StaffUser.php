@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace App\Modules\Staff\Models;
 
+use App\Modules\Staff\Enums\StaffRole;
 use App\Modules\Tenancy\Models\Concerns\UsesCentralConnection;
+use App\Modules\Tenancy\Models\Tenant;
 use Database\Factories\StaffUserFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * A staff account: a moderator, verifier, data editor, viewer or operator
@@ -36,9 +40,7 @@ use Illuminate\Support\Carbon;
  * A model cannot refuse to be read. What this class offers is the honest
  * question `hasConfirmedTwoFactor()` for that middleware to ask.
  *
- * Roles and tenant memberships arrive in HW-E13-F01-T01, which replaces
- * this file with the same class plus the authorization side: the spatie
- * HasRoles trait, the memberships relations, isOperatorAdmin() and roleIn().
+ * Roles and tenant memberships arrive in HW-E13-F01-T01.
  *
  * @property string $id
  * @property string $name
@@ -56,11 +58,22 @@ final class StaffUser extends Authenticatable
     /** @use HasFactory<StaffUserFactory> */
     use HasFactory;
 
+    use HasRoles;
     use HasUuids;
     use Notifiable;
     use UsesCentralConnection;
 
     protected $table = 'staff_users';
+
+    /**
+     * The spatie guard these roles belong to.
+     *
+     * Pinned rather than left to `auth.defaults.guard`, which
+     * ConfigureAuthForHost rewrites per host and which does not exist at all
+     * in a queued job. Without this, a role granted during a request on one
+     * host could be invisible to a check made anywhere else.
+     */
+    protected ?string $guard_name = StaffRole::GUARD;
 
     /**
      * Name and email only. Everything that decides what this account can do —
@@ -135,6 +148,60 @@ final class StaffUser extends Authenticatable
     public function canAuthenticate(): bool
     {
         return $this->is_active && ! $this->isLocked();
+    }
+
+    /**
+     * Every membership ever granted, revoked ones included — the audit record
+     * (docs/03 FR-AUD-01). Use activeMemberships() to decide anything.
+     *
+     * @return HasMany<StaffMembership, $this>
+     */
+    public function memberships(): HasMany
+    {
+        return $this->hasMany(StaffMembership::class, 'staff_user_id');
+    }
+
+    /**
+     * @return HasMany<StaffMembership, $this>
+     */
+    public function activeMemberships(): HasMany
+    {
+        return $this->memberships()->whereNull('revoked_at');
+    }
+
+    /**
+     * The global role (docs/12 §11.5): implies access to every municipality.
+     *
+     * Checked against the `staff` guard explicitly. spatie keys roles by
+     * guard, and the default guard on the admin host is already `staff`, but
+     * naming it means this answers the same way from a queued job, where there
+     * is no host and no default worth trusting.
+     */
+    public function isOperatorAdmin(): bool
+    {
+        return $this->hasRole(StaffRole::OPERATOR_ADMIN, StaffRole::GUARD);
+    }
+
+    /**
+     * Their role in one municipality, or null if they have none there.
+     *
+     * Null is the answer for a moderator of a different municipality, and it
+     * is the whole point of memberships: there is no global `moderator`, so
+     * there is nothing for this to fall back to (docs/12 §11.5).
+     *
+     * Operator admins get null too. They hold no membership — they bypass
+     * memberships entirely — and returning an invented one here would make
+     * `roleIn()` lie about what is recorded. StaffTenantPolicy checks the role
+     * first for exactly that reason.
+     */
+    public function roleIn(Tenant $tenant): ?StaffRole
+    {
+        $membership = $this->relationLoaded('memberships')
+            ? $this->memberships
+                ->first(fn (StaffMembership $m): bool => $m->tenant_id === $tenant->id && $m->isActive())
+            : $this->activeMemberships()->where('tenant_id', $tenant->id)->first();
+
+        return $membership?->role;
     }
 
     /**
