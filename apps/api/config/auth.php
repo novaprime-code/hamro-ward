@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Accounts\Models\User;
+use App\Modules\Staff\Models\StaffUser;
 
 return [
 
@@ -39,10 +40,23 @@ return [
     |
     */
 
+    /*
+    | Two session guards, one per host (docs/12 §11.1).
+    |
+    | `defaults.guard` above is only what a request on an unrecognised host
+    | would get: ConfigureAuthForHost overwrites both defaults per request from
+    | the hostname, so `web` applies on the public host and `staff` on the
+    | admin host. Nothing should rely on the default — the host decides.
+    */
     'guards' => [
         'web' => [
             'driver' => 'session',
             'provider' => 'users',
+        ],
+
+        'staff' => [
+            'driver' => 'session',
+            'provider' => 'staff_users',
         ],
     ],
 
@@ -69,10 +83,20 @@ return [
             'model' => env('AUTH_MODEL', User::class),
         ],
 
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        /*
+        | Staff are a different table, not a flag on `users` (docs/12 §11.1).
+        | The same person may hold both kinds of account; nothing joins them,
+        | which is what keeps a moderator's privileges out of the account they
+        | report from.
+        |
+        | No env() override here, unlike `users` above. A deployment that could
+        | repoint the staff provider at another model through an environment
+        | variable is a deployment where a typo decides who can moderate.
+        */
+        'staff_users' => [
+            'driver' => 'eloquent',
+            'model' => StaffUser::class,
+        ],
     ],
 
     /*
@@ -99,6 +123,29 @@ return [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
             'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        /*
+        | Defined, but no route reaches it: the admin host registers neither
+        | forgot-password nor reset-password, because a reset form on the host
+        | that holds moderation is a wider surface than asking an operator
+        | admin (docs/12 §11.1, AuthContext::fortifyFeatures).
+        |
+        | It exists because ConfigureAuthForHost points
+        | `auth.defaults.passwords` at this broker on the admin host, and a
+        | broker named in config but missing from it fails the first time
+        | anything resolves it rather than at deploy.
+        |
+        | Its own token table, not the citizens' one: `password_reset_tokens`
+        | is keyed by email alone, so sharing it would let a token issued for a
+        | citizen account be presented for a staff account with the same
+        | address.
+        */
+        'staff_users' => [
+            'provider' => 'staff_users',
+            'table' => 'staff_password_reset_tokens',
+            'expire' => 30,
             'throttle' => 60,
         ],
     ],

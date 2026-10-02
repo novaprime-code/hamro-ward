@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use App\Modules\Auth\Providers\AuthServiceProvider;
 use App\Modules\Demo\Providers\DemoServiceProvider;
 use App\Modules\Offices\Providers\OfficesServiceProvider;
 use App\Modules\Provenance\Providers\ProvenanceServiceProvider;
@@ -25,6 +26,7 @@ use App\Providers\AppServiceProvider;
 return [
     AppServiceProvider::class,
     SecurityServiceProvider::class,
+    AuthServiceProvider::class,
     TenancyServiceProvider::class,
     TenancyConsoleServiceProvider::class,
     ProvenanceServiceProvider::class,

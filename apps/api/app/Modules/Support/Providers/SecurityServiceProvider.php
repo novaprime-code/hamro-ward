@@ -52,5 +52,57 @@ final class SecurityServiceProvider extends ServiceProvider
              */
             return Limit::perMinute($perMinute)->by($address ?? 'unknown:'.$request->fingerprint());
         });
+
+        $this->registerAuthLimiters();
+    }
+
+    /**
+     * The limiters config/fortify.php names (docs/12 §11.3).
+     *
+     * Unlike `public-read`, these see the real visitor. Authenticated traffic
+     * reaches Laravel from the browser through the same-origin proxy rather
+     * than from the web tier, so the client address is the person's own and
+     * counting it means something.
+     */
+    private function registerAuthLimiters(): void
+    {
+        /*
+         * 5 attempts a minute, keyed on the submitted address AND the client
+         * address together.
+         *
+         * Both halves matter. Keyed on the address alone, anyone who knows a
+         * moderator's email could spend that moderator's five attempts a
+         * minute from anywhere and lock them out of their own account — a
+         * denial of service dressed up as a security control. Keyed on the
+         * client address alone, a household or an office behind one NAT shares
+         * a budget, which on mobile networks in Nepal can mean a whole city.
+         */
+        RateLimiter::for('login', function (Request $request): Limit {
+            $username = (string) config('fortify.username', 'email');
+            $submitted = mb_strtolower((string) $request->input($username, ''));
+
+            return Limit::perMinute(5)->by($submitted.'|'.($request->ip() ?? 'unknown'));
+        });
+
+        /*
+         * The second factor, limited separately. Reaching this step already
+         * proves the password, so the budget is per session rather than per
+         * address: six guesses at a six-digit code is nowhere near enough to
+         * matter, and a shared address must not let one person's attempts
+         * block another's.
+         */
+        RateLimiter::for('two-factor', function (Request $request): Limit {
+            return Limit::perMinute(6)->by($request->session()->get('login.id') ?? $request->ip() ?? 'unknown');
+        });
+
+        /*
+         * Verification email resends: 3 an hour (docs/12 §11.3). Keyed on the
+         * authenticated user when there is one, because this endpoint is
+         * reached while signed in but unverified, and on the address
+         * otherwise.
+         */
+        RateLimiter::for('verification', function (Request $request): Limit {
+            return Limit::perHour(3)->by($request->user()?->getAuthIdentifier() ?? $request->ip() ?? 'unknown');
+        });
     }
 }

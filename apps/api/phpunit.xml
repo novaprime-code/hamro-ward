@@ -35,6 +35,23 @@
         <env name="DB_CONNECTION" value="central"/>
         <env name="DB_DATABASE" value="hw_central_test"/>
 
+        <!--
+            The two hosts, fixed for the whole suite (docs/12 §11.2, D-018).
+
+            These have to be set HERE and not in a test, because the staff and
+            citizen copies of the Fortify routes are declared with
+            Route::domain() while the application boots. A test that reassigns
+            config('hosts.*') changes what AuthHosts resolves but leaves the
+            route table pointing at the old names, so the two disagree and the
+            failure looks like a bug in the middleware.
+
+            Deliberately not localhost: a bare hostname would make it possible
+            for a test to pass because the request matched a route with no
+            domain constraint at all.
+        -->
+        <env name="HW_PUBLIC_HOST" value="hamroward.test"/>
+        <env name="HW_ADMIN_HOST" value="admin.hamroward.test"/>
+
         <!-- Tenant databases created by tests are dropped by the tests -->
         <env name="TENANT_DB_PREFIX" value="hw_t_"/>
     </php>

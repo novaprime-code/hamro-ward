@@ -2,13 +2,20 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "hamro-ward/api",
     "type": "project",
-    "description": "Hamro Ward API — a neutral civic information platform for Nepal",
-    "keywords": ["laravel", "civic-tech", "nepal"],
+    "description": "Hamro Ward API \u2014 a neutral civic information platform for Nepal",
+    "keywords": [
+        "laravel",
+        "civic-tech",
+        "nepal"
+    ],
     "license": "proprietary",
     "require": {
-        "php": "^8.3",
+        "laravel/fortify": "^1.36",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10"
+        "laravel/sanctum": "^4.3",
+        "laravel/tinker": "^2.10",
+        "php": "^8.3",
+        "spatie/laravel-permission": "^8.3"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

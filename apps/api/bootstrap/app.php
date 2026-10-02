@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Modules\Auth\Http\Middleware\ConfigureAuthForHost;
+use App\Modules\Auth\Http\Middleware\RequireAuthContext;
 use App\Modules\Support\TrustedProxies;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -18,7 +20,33 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Tenancy resolution middleware is registered here in HW-E29-F03-T01.
-        // Host-based auth configuration is registered here in HW-E30-F01-T01.
+
+        /*
+         * Which account type this request is (docs/12 §11.2, D-018).
+         *
+         * PREPENDED, not appended, and that is the one hard ordering
+         * requirement in the whole design: StartSession reads session.cookie
+         * once when it opens the session, so anything that renames the cookie
+         * has to run before it. Appended, a staff request on the admin host
+         * would open the citizen session cookie and the separation between the
+         * two accounts would exist only in the documentation.
+         *
+         * Both groups, because both carry authenticated traffic: the `web`
+         * group serves Fortify's login endpoints and Sanctum's csrf-cookie,
+         * and the `api` group serves everything under /api/v1 that a signed-in
+         * citizen or staff member calls.
+         */
+        $middleware->prependToGroup('web', ConfigureAuthForHost::class);
+        $middleware->prependToGroup('api', ConfigureAuthForHost::class);
+
+        /*
+         * Refuses a route to a host it does not belong to — 404, never 403, so
+         * the staff surface is indistinguishable from a typo when seen from
+         * the public host (docs/12 §16).
+         */
+        $middleware->alias([
+            'auth.host' => RequireAuthContext::class,
+        ]);
 
         /*
          * Which callers may set X-Forwarded-*, and therefore decide what
