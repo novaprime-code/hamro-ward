@@ -1,6 +1,6 @@
 # Current state
 
-**As of:** 2026-09-27
+**As of:** 2026-10-03
 **Purpose:** what actually exists and runs today, so work can resume without
 rereading the history. Updated whenever the answer to "what is deployed?"
 changes.
@@ -14,8 +14,10 @@ dataset seeded: four invented municipalities, 63 wards, and the four ward states
 the product exists to distinguish. The public read path works end to end —
 Next.js → REST API → tenant resolution → per-municipality database. The
 frontend runs on shadcn/ui primitives mapped onto five switchable palettes.
-There is no real data, no staff dashboard, no citizen accounts, no issue
-reporting, and no production environment.
+Person pages, evidence pages, search and the sitemap exist, and `hw:import` can
+load a real sheet with an audit trail. There is still no real data, no staff
+dashboard, no citizen sign-in, no issue reporting, and no production
+environment.
 
 ---
 
@@ -83,6 +85,24 @@ their own card treatment: a vacancy is a plain card, an unverified seat a
 dashed amber border, neither pretending to be a person. The local-level type
 is no longer printed beside a name that already contains it.
 
+**Person and evidence pages** (`HW-E05-F02`, `HW-E04-F02`, Phase A) — a seat
+row links to the person (scoped to one municipality, `D-020`) and its badge to
+an evidence page listing every source by authority, with conflicts shown
+(`D-021`).
+
+**Search, sitemap, robots** (Phase B) and the **citizen account schema** —
+`users` and `user_wards` with their caps enforced in the database (Phase C,
+`D-022`–`D-024`). Authentication itself is not wired (`HW-E30-F01-T01`).
+
+**Importer** (`HW-E06-F02-T01`, Phase D) — `hw:import` loads the nine CSV files
+of `05` §13: dry run with a report for the D-002 reviewer, one transaction per
+database, row-level errors, idempotent re-runs, verifications by two named
+people, people and parties published once verified (`D-025`–`D-027`).
+Templates and a field guide in `data/templates/`.
+
+**Audit trail** — append-only `audit_events` in central and in every tenant.
+Only the importer writes to it so far.
+
 ---
 
 ## 4. The demonstration data
@@ -115,12 +135,11 @@ Demo path: `/ne` → `/ne/palika/koshi/sunsari/koshara` → wards 1 to 4 in orde
 
 ## 5. What is not built
 
-Issue reporting and moderation (`HW-E11`, `HW-E14`), citizen accounts
-(`HW-E30`), the staff dashboard, media upload, person pages (`HW-E05-F02`), the
-source sheet (`HW-E04-F02`), the CSV importer (`HW-E06-F02`), promises, the
-election module, search, the sitemap, the AI assistant. Also: no real geography
-import, and no About / Sources / Privacy pages — the footer links to three
-routes that do not exist.
+Issue reporting and moderation (`HW-E11`, `HW-E14`), citizen sign-in
+(`HW-E30-F01`), the staff dashboard and staff accounts (`HW-E13`), media upload,
+promises, the election module, the AI assistant, outbox events and on-demand
+revalidation (`HW-E08-F01-T04`), and a command to publish a place. Also: no
+real geography import has been run — the importer exists, the data does not.
 
 ---
 
@@ -152,10 +171,11 @@ routes that do not exist.
   vocabulary, where `text-muted` now means a background colour.
 * **`SeedDemoData` does not recover a tenant stuck in `maintenance`** with no
   database; the row has to be deleted by hand before a re-seed.
-* **Held seats link to an anchor on the same page** because person pages do not
-  exist yet, and the source badge says "official source" without linking to the
-  source because the source screens do not exist yet. Both are truthful and
-  render correctly; neither is a placeholder pretending to be finished.
+* **Pint and PHPStan do not pass on the existing code.** Run locally on
+  3 October, `pint --test` flagged about thirty files and `phpstan analyse`
+  reported about two hundred errors, most of them Pest's `$this->seed()` and
+  `$this->artisan()` inside test closures. New code is held to both; the
+  backlog needs either a fix or a baseline, decided deliberately.
 * **Provisioner credentials sit on the `app` container**, which both serves
   requests and runs the CLI. `docs/12` §7 wants them away from request-serving
   containers; that separation is partial until provisioning moves to a one-off
@@ -168,14 +188,15 @@ routes that do not exist.
 In the order that unblocks the most:
 
 1. **Choose the pilot municipality** (`D-006`). It gates real data collection
-   and has been open since 15 September.
-2. **`pnpm --filter web build` into `ci-web.yml`.** Ten minutes, pays for itself
+   and has been open since 15 September. Everything needed to load it now
+   exists.
+2. **Collect and import the pilot sheet** (`HW-E06-F01`, `HW-E06-F02-T02`) using
+   `data/templates/`, with the dry-run report reviewed by a second person.
+3. **`pnpm --filter web build` into `ci-web.yml`.** Ten minutes, pays for itself
    on the next push.
-3. **The CSV importer** (`HW-E06-F02-T01`) — the bridge from demonstration to
-   real data, and the point at which provenance stops being theoretical.
-4. **Person pages** (`HW-E05-F02`), so seat rows lead somewhere.
-5. **The source sheet** (`HW-E04-F02`), so the provenance badge becomes
-   clickable and the conflict on Koshara ward 1 can actually be read.
+4. **`TenantIsolationTest`** (`HW-E29-F03-T03`), now unblocked by the importer.
+5. **The authentication spike** (`HW-E30-F01-T01`), run by someone who can test
+   cookie and guard behaviour against real hosts.
 6. **Bring `09_UX_UI_SPEC.md` up to date** with the palettes, the shadcn
    component set and the screens as built.
 
@@ -185,6 +206,9 @@ In the order that unblocks the most:
 
 `D-013` in-house tenancy · `D-014` persons and parties stay central ·
 `D-015` environment-agnostic images · `D-016` two stacks, build-only pipelines,
-manual deploy · `D-017` shadcn mapped onto the palettes.
+manual deploy · `D-017` shadcn mapped onto the palettes · `D-020`–`D-021`
+person and evidence pages · `D-022`–`D-024` saved wards · `D-025`–`D-027`
+the importer.
 
-Full text and reasoning in `DECISIONS.md`.
+Full text and reasoning in `DECISIONS.md` up to `D-016`; from `D-017` on, under
+"Decided" in `CHANGELOG.md`.

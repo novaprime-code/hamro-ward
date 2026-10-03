@@ -2,6 +2,111 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-03 — Phase D: the importer (`hw:import`)
+
+`HW-E06-F02-T01`, the bridge from demonstration data to real data. Until now
+the only way a representative reached a ward page was `hw:demo:seed`. A pilot
+sheet can now be exported to CSV, dry-run, reviewed by a second person, and
+loaded — with every change in an audit trail.
+
+### Fixed first
+
+* **`CurrentSeatsQuery::forPerson()` was declared twice**, from both sides of
+  the staging merge in `6216721`. PHP refuses that at compile time, so on
+  `main` every ward, municipality and person page — and the whole test suite —
+  died with a fatal error before running. Committed separately.
+
+### Decided
+
+* **D-025: sheet refs become ids through UUIDv5, and are global.**
+  `person_ref`, `party_ref` and `source_ref` have no column of their own; the
+  same ref always maps to the same id, which is what makes a re-run an update
+  rather than a second copy of everyone. The cost is that `p12` in two
+  municipalities' sheets is one person. The report warns whenever a re-import
+  renames a person or party, which is what a reused ref looks like, and the
+  template guide tells sheet authors to use refs that cannot collide. Holdings,
+  vacancies and ward offices have real natural keys (`05` §13) and are found by
+  them, so rows entered any other way are updated, not duplicated.
+* **D-026: until staff accounts exist, a verifier's name stands in for their
+  id.** `source_links.verified_by` must hold a uuid when a link is verified,
+  and the people checking the pilot sheet have no `staff_users` row yet
+  (`HW-E13`). The importer derives a stable uuid from the normalised name and
+  records the names themselves in the `import.completed` audit event, which is
+  how the id is traced back to a person. The two names must differ (`D-002`).
+  Names are not written to `evidence_note`, which is public.
+* **D-027: an import publishes people and parties, never places.** A person or
+  party becomes public once a verified record-level source backs it
+  (FR-SRC-02) — the rule the schema already stated, now applied. A place stays
+  unpublished until an operator publishes it, because that is when a
+  municipality goes live (`D-006`). Nothing is ever unpublished by an import.
+* **Geography is never imported with `--tenant`.** A tenant knows only the
+  wards that existed when its reference data was last synced. Loading new wards
+  and their representatives in one run would either fail on the tenant's
+  foreign keys or need a sync inside an open transaction. Two runs, with
+  onboarding between them, is the order the work happens in anyway.
+
+### Code — api
+
+* `app/Modules/Imports`: `hw:import {directory} [--tenant=] [--dry-run]
+  [--report=] [--force]`. All nine files in `05` §13.
+  * **One transaction per database, held open until every row is checked.**
+    Each row runs in a savepoint, so a bad row rolls back alone and is
+    reported; the run then commits only if nothing was refused. A dry run is
+    the same run rolled back at the end, so it exercises the database's own
+    constraints and triggers — the seat exclusion, the seat-reference trigger,
+    the hierarchy trigger — instead of a second validator that would drift
+    from them.
+  * **Commit order is central, then tenant.** A failed tenant commit leaves
+    people nothing refers to yet; the other order could leave a municipality
+    pointing at people who do not exist.
+  * **Re-running is a no-op.** Unchanged rows are not saved, so there is no new
+    `updated_at`, no audit event and no `import.completed`. Ward-office
+    locations are read back as EWKT for the comparison; raw, PostGIS returns
+    hex EWKB, which never equals the text written.
+  * **Errors name the file, spreadsheet row and column**, in words the sheet's
+    author can act on. Known constraint violations are translated ("someone
+    else holds this seat over an overlapping period…"); unknown ones pass the
+    database's message through without connection details.
+  * **Refusals that exist because of real failure modes:** a header that is
+    not exactly the documented one (a renamed column would load one field into
+    another); an unrecognised file name (a typo would otherwise be skipped
+    silently); a duplicate natural key in one file (which row wins would depend
+    on order); a date from AD 2034 on (a BS date in an AD column); coordinates
+    outside Nepal (lat and lng swapped); a central record citing a
+    municipality's document; a verification of a citation that was never made.
+  * Excel's byte-order mark is stripped, and every cell is normalised to NFC,
+    so the same Devanagari word typed two ways is one word.
+  * Two sources asserting different values for one field are both kept and
+    named in the report, so the reviewer learns about the disagreement before
+    the ward page shows it.
+* `app/Modules/Audit` and `audit_events` in central and in every tenant
+  (`05` §9.1). Append-only for every role, the owner included: a trigger
+  refuses UPDATE, DELETE and TRUNCATE, and the application role is narrowed to
+  INSERT and SELECT. Tenant history lives in the tenant, so a per-tenant
+  restore after a bad import restores the record of what it did.
+* The importer writes `{subject}.created` / `.updated`, `source_link.verified`
+  and `{person,party}.published` per change, with before and after values, and
+  one `import.completed` per database carrying file hashes, counts and the
+  verifiers' names. All share the run id as `request_id`.
+
+### Data and docs
+
+* `data/templates/`: header-only CSVs for all nine files, and a field guide for
+  whoever fills them in. A test fails if a template drifts from the importer.
+* `05` §13 gains the rules the importer actually applies: ref scope, source
+  scope, the `subject_ref` grammar, publication.
+
+### Not in this batch
+
+* **Outbox events and the revalidation job** named in `05` §13. The outbox
+  table and its consumer arrive with the central indexes they feed; on-demand
+  revalidation is `HW-E08-F01-T04`, which depends on this task.
+* **Recorded `fact_conflicts`.** Disagreements are reported and remain visible
+  on the evidence page, derived from the links as before. Opening conflict rows
+  for the verifier queue belongs to the verification workflow (`HW-E17`).
+* **A publish command.** Publishing a place is still `PublishAdminUnit` from
+  tinker, then `hw:tenant:sync-reference`.
+
 ## 2026-10-01 — Phase C: citizen account schema and saved wards
 
 The durable half of `HW-E30`. Not the authentication wiring — see "Not in this

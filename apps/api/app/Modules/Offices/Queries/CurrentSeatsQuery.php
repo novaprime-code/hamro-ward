@@ -128,40 +128,6 @@ final class CurrentSeatsQuery
     }
 
     /**
-     * The seats one person currently holds in this municipality (HW-E05-F02).
-     *
-     * Scoped to the resolved tenant, and current only. Two consequences worth
-     * being explicit about, because both are visible to a reader:
-     *
-     *  - A career spanning several municipalities shows only this one's part of
-     *    it. Holdings live in per-municipality databases and PostgreSQL will
-     *    not join across them, so the whole story needs a central index that
-     *    does not exist yet.
-     *  - A finished term does not appear. `v_current_seats` answers "who
-     *    represents this ward today", which is the question the rest of the
-     *    site asks; a term history is its own feature with its own view.
-     *
-     * Neither is a limitation to paper over on the page. A person page that
-     * silently showed only part of a career while looking complete would be
-     * making exactly the kind of unstated claim this platform exists to avoid.
-     *
-     * @return Collection<int, SeatRow>
-     */
-    public function forPerson(string $personId): Collection
-    {
-        return $this->hydrate(
-            $this->view()
-                ->where('person_id', $personId)
-                ->orderByRaw("constituency_level = 'local_level' DESC")
-                ->orderBy('ward_number')
-                ->orderByRaw('ballot_order NULLS LAST')
-                ->orderBy('position_key')
-                ->orderBy('seat_index')
-                ->get()
-        );
-    }
-
-    /**
      * How much of a constituency's information is confirmed — the number a ward
      * page states plainly rather than hiding empty seats (FR-OFF-04).
      *
