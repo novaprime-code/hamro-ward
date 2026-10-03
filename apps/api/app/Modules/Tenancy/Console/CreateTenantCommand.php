@@ -75,6 +75,21 @@ final class CreateTenantCommand extends Command
         $this->components->twoColumnDetail('Schema version', (string) $tenant->schema_version);
         $this->components->twoColumnDetail('Reference version', (string) $tenant->reference_version);
 
+        /*
+         * Onboarding does not publish (D-006), so say what is still true:
+         * the tenant is live and the place is not public. Left unsaid, an
+         * operator reads "active" as "people can see it" and either panics
+         * about empty data or waits for traffic that cannot arrive.
+         */
+        if (! $localLevel->is_published) {
+            $this->newLine();
+            $this->components->warn('Not public yet — the local level is unpublished.');
+            $this->line('  Load and verify its representatives first, then publish it.');
+            $this->line('  Publishing updates the central record only, so re-run');
+            $this->line("  <options=bold>hw:tenant:sync-reference {$tenant->tenant_key}</> afterwards,");
+            $this->line('  or the wards stay flagged unpublished inside the tenant.');
+        }
+
         return self::SUCCESS;
     }
 

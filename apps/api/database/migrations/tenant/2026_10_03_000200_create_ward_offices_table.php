@@ -57,7 +57,7 @@ return new class extends Migration
          * one to the municipality and every ward page would inherit it.
          */
         DB::unprepared(<<<'SQL'
-            CREATE FUNCTION ward_offices_subject_is_a_ward() RETURNS trigger
+            CREATE OR REPLACE FUNCTION ward_offices_subject_is_a_ward() RETURNS trigger
             LANGUAGE plpgsql AS $$
             DECLARE
                 unit_level text;
