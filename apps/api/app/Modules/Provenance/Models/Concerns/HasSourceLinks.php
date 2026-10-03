@@ -35,12 +35,16 @@ trait HasSourceLinks
      */
     public function verifiedSourceLinks(?string $fieldPath = null): MorphMany
     {
-        return $this->sourceLinks()
-            ->verified()
-            ->when(
-                $fieldPath === null,
-                fn ($query) => $query->whereNull('field_path'),
-                fn ($query) => $query->where('field_path', $fieldPath),
-            );
+        // Constrain the relation's own query and return the relation, rather
+        // than chaining through __call: the chain hands back whatever the last
+        // forwarded call returned, which is the relation only by convention.
+        $links = $this->sourceLinks();
+        $query = $links->getQuery()->verified();
+
+        $fieldPath === null
+            ? $query->whereNull('field_path')
+            : $query->where('field_path', $fieldPath);
+
+        return $links;
     }
 }

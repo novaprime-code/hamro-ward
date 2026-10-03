@@ -14,6 +14,7 @@ use App\Modules\Tenancy\Actions\SyncTenantReferenceData;
 use App\Modules\Tenancy\Models\Tenant;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Pest\Support\HigherOrderTapProxy;
 use Tests\TestCase;
 
 /*
@@ -23,9 +24,27 @@ use Tests\TestCase;
 uses(TestCase::class)->in('Feature', 'Unit');
 
 /**
+ * The running test case, for helper functions that live outside a test
+ * closure and so have no $this. Pest's test() with no arguments wraps it in a
+ * proxy and is declared to return a pending call as well, so analysis cannot
+ * see getJson() or artisan() through it; this unwraps it and says so.
+ */
+function testCase(): TestCase
+{
+    $proxy = test();
+
+    if (! $proxy instanceof HigherOrderTapProxy || ! $proxy->target instanceof TestCase) {
+        throw new LogicException('testCase() is only available while a Feature or Unit test is running.');
+    }
+
+    return $proxy->target;
+}
+
+/**
  * Runs a statement the database must reject. The savepoint keeps the test's
  * outer transaction usable afterwards (PostgreSQL aborts it otherwise).
  */
+/** @param  Closure(): mixed  $statement */
 function expectRejectedByDatabase(Closure $statement): void
 {
     expect(fn () => DB::connection('central')->transaction($statement))
@@ -36,6 +55,8 @@ function expectRejectedByDatabase(Closure $statement): void
  * The same, inside the currently initialized tenant. A tenant database has its
  * own constraints — the seat exclusion, the seat-reference trigger — and they
  * need proving separately from the central ones.
+ *
+ * @param  Closure(): mixed  $statement
  */
 function expectRejectedByTenantDatabase(Closure $statement): void
 {

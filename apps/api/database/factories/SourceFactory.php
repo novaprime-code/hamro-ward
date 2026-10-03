@@ -20,7 +20,7 @@ final class SourceFactory extends Factory
     protected $model = Source::class;
 
     /**
-     * @return array<string, mixed>
+     * @return array<model-property<Source>, mixed>
      */
     public function definition(): array
     {

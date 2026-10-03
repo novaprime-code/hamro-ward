@@ -20,7 +20,7 @@ final class UserWardFactory extends Factory
     protected $model = UserWard::class;
 
     /**
-     * @return array<string, mixed>
+     * @return array<model-property<UserWard>, mixed>
      */
     public function definition(): array
     {

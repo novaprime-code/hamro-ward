@@ -24,7 +24,7 @@ final class AdminUnitFactory extends Factory
     /**
      * Defaults to a province under the (shared) country.
      *
-     * @return array<string, mixed>
+     * @return array<model-property<AdminUnit>, mixed>
      */
     public function definition(): array
     {

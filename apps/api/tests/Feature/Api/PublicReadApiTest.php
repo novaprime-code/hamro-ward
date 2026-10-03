@@ -33,7 +33,7 @@ it('lists the municipalities a visitor can open', function (): void {
 
     expect($response->json('data'))->toHaveCount(4);
 
-    $koshara = collect($response->json('data'))->firstWhere('slug_path', KOSHARA);
+    $koshara = $response->collect('data')->firstWhere('slug_path', KOSHARA);
 
     expect($koshara['name']['ne'])->toBe('कोशारा उपमहानगरपालिका')
         ->and($koshara['type'])->toBe('sub_metropolitan_city')
@@ -47,7 +47,7 @@ it('hides a municipality whose tenant is not active', function (): void {
     Tenant::query()->firstWhere('admin_unit_id', DemoDataset::id('admin_unit', 'koshara'))
         ?->forceFill(['status' => TenantStatus::Maintenance])->save();
 
-    $paths = collect($this->getJson('/api/v1/local-levels')->json('data'))->pluck('slug_path');
+    $paths = $this->getJson('/api/v1/local-levels')->collect('data')->pluck('slug_path');
 
     expect($paths)->not->toContain(KOSHARA)->toHaveCount(3);
 });
@@ -62,16 +62,17 @@ it('returns a municipality with its wards and leadership', function (): void {
 });
 
 it('uses rural position names in a rural municipality', function (): void {
-    $keys = collect($this->getJson('/api/v1/local-levels/sudurpashchim/baitadi/sainli')->json('data.leadership'))
+    $keys = $this->getJson('/api/v1/local-levels/sudurpashchim/baitadi/sainli')->collect('data.leadership')
         ->pluck('position_key');
 
-    expect($keys)->toContain('chairperson')->not->toContain('mayor');
+    expect($keys)->toContain('chairperson');
+    expect($keys)->not->toContain('mayor');
 });
 
 it('returns both constituencies on a ward page', function (): void {
     $response = $this->getJson('/api/v1/wards/'.KOSHARA.'/1')->assertOk();
 
-    $seats = collect($response->json('data.seats'));
+    $seats = $response->collect('data.seats');
 
     // Five ward seats plus the mayor and deputy (docs/02 §4.1).
     expect($seats)->toHaveCount(7)
@@ -83,7 +84,7 @@ it('lists every seat, including the ones nothing is known about', function (): v
     // Ward 4 in the demonstration has no data at all. The seats must still
     // appear, or the page tells a citizen their ward has fewer
     // representatives than it has.
-    $seats = collect($this->getJson('/api/v1/wards/'.KOSHARA.'/4')->json('data.seats'))
+    $seats = $this->getJson('/api/v1/wards/'.KOSHARA.'/4')->collect('data.seats')
         ->where('constituency_level', 'ward');
 
     expect($seats)->toHaveCount(5)
@@ -92,7 +93,7 @@ it('lists every seat, including the ones nothing is known about', function (): v
 });
 
 it('reports a verified vacancy as vacant, with its reason', function (): void {
-    $seat = collect($this->getJson('/api/v1/wards/'.KOSHARA.'/2')->json('data.seats'))
+    $seat = $this->getJson('/api/v1/wards/'.KOSHARA.'/2')->collect('data.seats')
         ->firstWhere('position_key', 'ward_member_dalit_woman');
 
     expect($seat['state'])->toBe('vacant')
@@ -103,7 +104,7 @@ it('keeps an unsourced holder visible but unverified', function (): void {
     // Ward 3 has holders recorded with no source. The name is returned — we do
     // know something — but the state says it is not confirmed, and the client
     // must not render it as fact (FR-SRC-02).
-    $seat = collect($this->getJson('/api/v1/wards/'.KOSHARA.'/3')->json('data.seats'))
+    $seat = $this->getJson('/api/v1/wards/'.KOSHARA.'/3')->collect('data.seats')
         ->firstWhere('position_key', 'ward_chair');
 
     expect($seat['state'])->toBe('not_verified')
@@ -135,10 +136,10 @@ it('503s a municipality in maintenance, so search engines keep its pages', funct
 
 it('never leaks one municipality into another', function (): void {
     // The single most important property of the tenancy design.
-    $koshara = collect($this->getJson('/api/v1/wards/'.KOSHARA.'/1')->json('data.seats'))
+    $koshara = $this->getJson('/api/v1/wards/'.KOSHARA.'/1')->collect('data.seats')
         ->pluck('person.slug')->filter();
 
-    $sainli = collect($this->getJson('/api/v1/wards/sudurpashchim/baitadi/sainli/1')->json('data.seats'))
+    $sainli = $this->getJson('/api/v1/wards/sudurpashchim/baitadi/sainli/1')->collect('data.seats')
         ->pluck('person.slug')->filter();
 
     expect($koshara->intersect($sainli))->toBeEmpty();

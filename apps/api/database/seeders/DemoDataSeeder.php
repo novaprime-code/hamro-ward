@@ -22,9 +22,11 @@ final class DemoDataSeeder extends Seeder
 
     public function run(): void
     {
-        $result = $this->seed->handle(fn (string $line): mixed => $this->command?->info($line));
+        $result = $this->seed->handle(function (string $line): void {
+            $this->command->info($line);
+        });
 
-        $this->command?->info(sprintf(
+        $this->command->info(sprintf(
             'Seeded %d local levels, %d wards and %d people.',
             $result['geography']['local_levels'],
             $result['geography']['wards'],

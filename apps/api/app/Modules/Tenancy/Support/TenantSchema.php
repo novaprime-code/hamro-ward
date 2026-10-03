@@ -33,7 +33,7 @@ final class TenantSchema
      */
     public static function appliedVersion(string $connection): ?string
     {
-        if (!Schema::connection($connection)->hasTable('migrations')) {
+        if (! Schema::connection($connection)->hasTable('migrations')) {
             return null;
         }
 

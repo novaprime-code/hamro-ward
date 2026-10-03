@@ -24,7 +24,7 @@ final class SetTenantStatusCommand extends Command
     {
         $tenant = Tenant::query()->where('tenant_key', (string) $this->argument('tenant'))->first();
 
-        if (!$tenant instanceof Tenant) {
+        if (! $tenant instanceof Tenant) {
             $this->components->error('No tenant with that key. Try hw:tenant:list.');
 
             return self::FAILURE;
@@ -32,7 +32,7 @@ final class SetTenantStatusCommand extends Command
 
         $status = TenantStatus::tryFrom((string) $this->argument('status'));
 
-        if ($status === null || !in_array($status, [TenantStatus::Active, TenantStatus::Suspended, TenantStatus::Maintenance], true)) {
+        if ($status === null || ! in_array($status, [TenantStatus::Active, TenantStatus::Suspended, TenantStatus::Maintenance], true)) {
             $this->components->error('Status must be active, suspended or maintenance.');
 
             return self::FAILURE;

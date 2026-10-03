@@ -26,6 +26,9 @@ use Illuminate\Support\Carbon;
  * @property string $position_key
  * @property string $constituency_id
  * @property int $seat_index
+ * @property Carbon $vacant_from
+ * @property ?Carbon $vacant_to
+ * @property ?VacancyReason $reason
  */
 final class Vacancy extends Model
 {
@@ -59,6 +62,10 @@ final class Vacancy extends Model
         return $this->belongsTo(TenantAdminUnit::class, 'constituency_id');
     }
 
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
     public function scopeCurrentOn(Builder $query, ?Carbon $on = null): Builder
     {
         $on ??= Carbon::today();
@@ -69,6 +76,10 @@ final class Vacancy extends Model
                 ->orWhereDate('vacant_to', '>', $on));
     }
 
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
     public function scopeForSeat(
         Builder $query,
         string $positionKey,

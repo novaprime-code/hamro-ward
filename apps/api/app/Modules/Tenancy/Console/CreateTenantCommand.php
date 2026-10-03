@@ -54,7 +54,7 @@ final class CreateTenantCommand extends Command
                 ->count(),
         );
 
-        if (!$this->option('force') && !$this->confirm('Create a database for this local level?', true)) {
+        if (! $this->option('force') && ! $this->confirm('Create a database for this local level?', true)) {
             $this->components->warn('Nothing was created.');
 
             return self::SUCCESS;
@@ -109,7 +109,7 @@ final class CreateTenantCommand extends Command
             return AdminUnit::query()->find($slug->admin_unit_id);
         }
 
-        if (!str_contains($path, '/')) {
+        if (! str_contains($path, '/')) {
             return AdminUnit::query()
                 ->where('level', AdminLevel::LocalLevel->value)
                 ->where('slug', $path)

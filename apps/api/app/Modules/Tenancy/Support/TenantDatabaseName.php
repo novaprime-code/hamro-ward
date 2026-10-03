@@ -46,7 +46,7 @@ final class TenantDatabaseName
         for ($attempt = 0; $attempt < 10; $attempt++) {
             $key = bin2hex(random_bytes(4));
 
-            if (!Tenant::query()->where('tenant_key', $key)->exists()) {
+            if (! Tenant::query()->where('tenant_key', $key)->exists()) {
                 return $key;
             }
         }

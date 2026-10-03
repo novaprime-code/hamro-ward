@@ -88,7 +88,7 @@ function runImport(string $directory, array $options = []): int
 {
     $report = $directory.'/report.md';
 
-    return test()->artisan('hw:import', ['directory' => $directory, '--force' => true, '--report' => $report, ...$options])
+    return testCase()->artisan('hw:import', ['directory' => $directory, '--force' => true, '--report' => $report, ...$options])
         ->run();
 }
 

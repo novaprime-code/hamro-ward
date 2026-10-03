@@ -162,20 +162,14 @@ real geography import has been run — the importer exists, the data does not.
 * **`docs/09_UX_UI_SPEC.md` is out of date** — it still describes the rejected
   palette and roughly a third of the approved screens. The largest documentation
   gap in the project.
-* **`ci-web.yml` runs tests but not a build.** Adding `pnpm --filter web build`
-  would have caught four separate failures before they reached a Docker build.
-  Same for a `docker build` smoke check in `ci-api.yml`.
+* **`ci-api.yml` has no `docker build` smoke check.** The web workflow already
+  runs `pnpm --filter web build`; the API image is only built after merge.
 * **Three duplicate components** may still exist in `apps/web/src/components/`
   (`beta-banner`, `site-header`, `site-footer` both flat and under `layout/`),
   plus a possibly-orphaned `api-status.tsx`. The flat copies use the old token
   vocabulary, where `text-muted` now means a background colour.
 * **`SeedDemoData` does not recover a tenant stuck in `maintenance`** with no
   database; the row has to be deleted by hand before a re-seed.
-* **Pint and PHPStan do not pass on the existing code.** Run locally on
-  3 October, `pint --test` flagged about thirty files and `phpstan analyse`
-  reported about two hundred errors, most of them Pest's `$this->seed()` and
-  `$this->artisan()` inside test closures. New code is held to both; the
-  backlog needs either a fix or a baseline, decided deliberately.
 * **Provisioner credentials sit on the `app` container**, which both serves
   requests and runs the CLI. `docs/12` §7 wants them away from request-serving
   containers; that separation is partial until provisioning moves to a one-off
@@ -192,12 +186,10 @@ In the order that unblocks the most:
    exists.
 2. **Collect and import the pilot sheet** (`HW-E06-F01`, `HW-E06-F02-T02`) using
    `data/templates/`, with the dry-run report reviewed by a second person.
-3. **`pnpm --filter web build` into `ci-web.yml`.** Ten minutes, pays for itself
-   on the next push.
-4. **`TenantIsolationTest`** (`HW-E29-F03-T03`), now unblocked by the importer.
-5. **The authentication spike** (`HW-E30-F01-T01`), run by someone who can test
+3. **`TenantIsolationTest`** (`HW-E29-F03-T03`), now unblocked by the importer.
+4. **The authentication spike** (`HW-E30-F01-T01`), run by someone who can test
    cookie and guard behaviour against real hosts.
-6. **Bring `09_UX_UI_SPEC.md` up to date** with the palettes, the shadcn
+5. **Bring `09_UX_UI_SPEC.md` up to date** with the palettes, the shadcn
    component set and the screens as built.
 
 ---

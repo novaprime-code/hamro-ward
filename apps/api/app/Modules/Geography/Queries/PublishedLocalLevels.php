@@ -22,7 +22,7 @@ use Illuminate\Support\Collection;
 final class PublishedLocalLevels
 {
     /**
-     * @return Collection<int, array<string, mixed>>
+     * @return Collection<int, array{unit: AdminUnit, wards: int}>
      */
     public function handle(?string $search = null): Collection
     {

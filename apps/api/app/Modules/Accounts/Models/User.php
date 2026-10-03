@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 
 /**
  * A citizen account (docs/12 §11.1, §12.1, D-011).
@@ -35,7 +36,7 @@ use Illuminate\Notifications\Notifiable;
  * @property string $id
  * @property string $display_name
  * @property string $email
- * @property \Illuminate\Support\Carbon|null $email_verified_at
+ * @property Carbon|null $email_verified_at
  * @property string $preferred_locale
  * @property UserStatus $status
  */

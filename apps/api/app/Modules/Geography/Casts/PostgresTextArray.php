@@ -44,7 +44,9 @@ final class PostgresTextArray implements CastsAttributes
         $values = [];
 
         foreach ($matches as $match) {
-            $values[] = isset($match[2]) && $match[2] !== ''
+            // Group 2 is `[^,]+`, so when it is present it is never empty; a
+            // quoted element ("", or "c, d") arrives in group 1 instead.
+            $values[] = isset($match[2])
                 ? trim($match[2])
                 : stripcslashes($match[1]);
         }

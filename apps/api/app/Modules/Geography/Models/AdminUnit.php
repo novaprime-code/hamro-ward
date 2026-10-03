@@ -41,8 +41,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $published_at
  * @property Carbon|null $valid_from
  * @property Carbon|null $valid_to
- * @property Carbon $created_at
- * @property Carbon $updated_at
+ * @property Carbon|null $created_at nullable columns: rows written by SQL rather than Eloquent have none
+ * @property Carbon|null $updated_at
  */
 final class AdminUnit extends Model
 {

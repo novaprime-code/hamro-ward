@@ -99,7 +99,7 @@ it('keeps both sides of a disagreement and orders them by authority', function (
 
     expect($response->json('data.has_conflict'))->toBeTrue();
 
-    $party = collect($response->json('data.fields'))->firstWhere('field_path', 'party_id');
+    $party = $response->collect('data.fields')->firstWhere('field_path', 'party_id');
 
     expect($party)->not->toBeNull()
         ->and($party['in_conflict'])->toBeTrue()

@@ -28,11 +28,11 @@ afterEach(function (): void {
 });
 
 it('lists every published municipality and its wards', function (): void {
-    $data = $this->getJson('/api/v1/published-paths')->assertOk()->json('data');
+    $data = $this->getJson('/api/v1/published-paths')->assertOk()->collect('data');
 
     expect($data)->toHaveCount(4);
 
-    $koshara = collect($data)->firstWhere('slug_path', 'koshi/sunsari/koshara');
+    $koshara = $data->firstWhere('slug_path', 'koshi/sunsari/koshara');
 
     expect($koshara)->not->toBeNull()
         ->and($koshara['wards'])->toHaveCount(20)
@@ -41,7 +41,7 @@ it('lists every published municipality and its wards', function (): void {
 });
 
 it('returns wards in order, so a sitemap is stable between builds', function (): void {
-    $koshara = collect($this->getJson('/api/v1/published-paths')->json('data'))
+    $koshara = $this->getJson('/api/v1/published-paths')->collect('data')
         ->firstWhere('slug_path', 'koshi/sunsari/koshara');
 
     expect(array_column($koshara['wards'], 'number'))->toBe(range(1, 20));
@@ -57,7 +57,7 @@ it('omits a municipality whose tenant is not active', function (): void {
         ->firstWhere('admin_unit_id', DemoDataset::id('admin_unit', 'koshara'))
         ?->forceFill(['status' => TenantStatus::Maintenance])->save();
 
-    $paths = collect($this->getJson('/api/v1/published-paths')->json('data'))->pluck('slug_path');
+    $paths = $this->getJson('/api/v1/published-paths')->collect('data')->pluck('slug_path');
 
     expect($paths)->not->toContain('koshi/sunsari/koshara')->toHaveCount(3);
 });
@@ -73,7 +73,7 @@ it('omits an unpublished ward', function (): void {
 
     $ward->forceFill(['is_published' => false])->save();
 
-    $koshara = collect($this->getJson('/api/v1/published-paths')->json('data'))
+    $koshara = $this->getJson('/api/v1/published-paths')->collect('data')
         ->firstWhere('slug_path', 'koshi/sunsari/koshara');
 
     expect($koshara['wards'])->toHaveCount(19)

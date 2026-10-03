@@ -56,8 +56,7 @@ final class PostgresUuidArray implements CastsAttributes
      */
     public function set(Model $model, string $key, mixed $value, array $attributes): string
     {
-        /** @var list<string> $items */
-        $items = is_array($value) ? array_values($value) : [];
+        $items = is_array($value) ? $value : [];
 
         return '{'.implode(',', $items).'}';
     }

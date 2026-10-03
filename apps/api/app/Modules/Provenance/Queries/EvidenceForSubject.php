@@ -246,11 +246,11 @@ final class EvidenceForSubject
                  * LAST rather than first, so a source type missing from a
                  * tenant's replica cannot quietly outrank the ECN.
                  */
-                'rank' => (int) ($type?->authority_rank ?? 99),
-                'label_ne' => (string) ($type?->label_ne ?? $source->source_type_key),
-                'label_en' => (string) ($type?->label_en ?? $source->source_type_key),
+                'rank' => (int) ($type->authority_rank ?? 99),
+                'label_ne' => (string) ($type->label_ne ?? $source->source_type_key),
+                'label_en' => (string) ($type->label_en ?? $source->source_type_key),
                 'published_at' => $source->published_at?->toDateString(),
-                'retrieved_at' => $source->retrieved_at?->toIso8601String(),
+                'retrieved_at' => $source->retrieved_at->toIso8601String(),
             ];
         }
 

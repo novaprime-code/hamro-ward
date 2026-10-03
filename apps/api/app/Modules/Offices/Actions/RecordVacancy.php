@@ -31,7 +31,7 @@ final class RecordVacancy
         ?VacancyReason $reason = null,
         ?string $note = null,
     ): Vacancy {
-        if (!TenantPosition::query()->whereKey($positionKey)->exists()) {
+        if (! TenantPosition::query()->whereKey($positionKey)->exists()) {
             throw OfficesException::unknownPosition($positionKey);
         }
 

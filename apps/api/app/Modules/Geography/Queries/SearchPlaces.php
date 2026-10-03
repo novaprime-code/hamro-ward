@@ -12,6 +12,7 @@ use App\Modules\Tenancy\Models\Tenant;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use stdClass;
 
 /**
  * "Find your ward" (HW-E09, FR-GEO-07).
@@ -39,6 +40,16 @@ use Illuminate\Support\Facades\DB;
  * behind a per-municipality database, and a national search over the names of
  * elected officials is a different feature with different consequences — it
  * wants deciding on rather than falling out of a geography query.
+ *
+ * @phpstan-type SearchResult array{
+ *     type: string,
+ *     slug_path: mixed,
+ *     ward_number: int|null,
+ *     name: array{ne: mixed, en: mixed},
+ *     local_level_type: mixed,
+ *     district: array{ne: mixed, en: mixed},
+ *     province: array{ne: mixed, en: mixed},
+ * }
  */
 final class SearchPlaces
 {
@@ -48,9 +59,7 @@ final class SearchPlaces
     private const LIMIT = 12;
 
     /**
-     * @return Collection<int, array<string, mixed>> ranked; each row has
-     *                                               type, slug_path, names and
-     *                                               (for a ward) its number
+     * @return Collection<int, SearchResult> ranked
      */
     public function handle(string $query): Collection
     {
@@ -144,7 +153,7 @@ final class SearchPlaces
      * the same bar the picker uses, because a search result that leads to a 503
      * reads as a broken site rather than as a municipality that is not ready.
      *
-     * @return Collection<int, array<string, mixed>>
+     * @return Collection<int, stdClass> raw rows, mapped to the public shape last
      */
     private function everyOpenLocalLevel(): Collection
     {
@@ -152,7 +161,7 @@ final class SearchPlaces
     }
 
     /**
-     * @return Collection<int, object> raw rows, mapped to the public shape last
+     * @return Collection<int, stdClass> raw rows, mapped to the public shape last
      */
     private function matchLocalLevels(string $text): Collection
     {
@@ -233,7 +242,7 @@ final class SearchPlaces
 
     /**
      * @param  list<string>  $localLevelIds
-     * @return Collection<int, array<string, mixed>>
+     * @return Collection<int, SearchResult>
      */
     private function wardsOf(array $localLevelIds, int $wardNumber): Collection
     {
@@ -261,31 +270,35 @@ final class SearchPlaces
                 'pr.name_ne as province_ne', 'pr.name_en as province_en',
             )
             ->get()
-            ->map(fn (object $row): array => [
-                'type' => 'ward',
-                'slug_path' => $row->slug_path,
-                'ward_number' => (int) $row->ward_number,
-                'name' => ['ne' => $row->name_ne, 'en' => $row->name_en],
-                'local_level_type' => $row->local_level_type,
-                'district' => ['ne' => $row->district_ne, 'en' => $row->district_en],
-                'province' => ['ne' => $row->province_ne, 'en' => $row->province_en],
-            ]);
+            ->map(fn (stdClass $row): array => $this->result($row, (int) $row->ward_number));
     }
 
     /**
-     * @param  Collection<int, object>  $rows
-     * @return Collection<int, array<string, mixed>>
+     * @param  Collection<int, stdClass>  $rows
+     * @return Collection<int, SearchResult>
      */
     private function rows(Collection $rows): Collection
     {
-        return $rows->map(fn (object $row): array => [
-            'type' => 'local_level',
+        return $rows->map(fn (stdClass $row): array => $this->result($row, null));
+    }
+
+    /**
+     * The public shape of one result. A ward result and a municipality result
+     * differ only in type and number, so they are built in one place and
+     * cannot drift apart.
+     *
+     * @return SearchResult
+     */
+    private function result(stdClass $row, ?int $wardNumber): array
+    {
+        return [
+            'type' => $wardNumber === null ? 'local_level' : 'ward',
             'slug_path' => $row->slug_path,
-            'ward_number' => null,
+            'ward_number' => $wardNumber,
             'name' => ['ne' => $row->name_ne, 'en' => $row->name_en],
             'local_level_type' => $row->local_level_type,
             'district' => ['ne' => $row->district_ne, 'en' => $row->district_en],
             'province' => ['ne' => $row->province_ne, 'en' => $row->province_en],
-        ]);
+        ];
     }
 }

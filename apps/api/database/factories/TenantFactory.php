@@ -21,7 +21,7 @@ final class TenantFactory extends Factory
     protected $model = Tenant::class;
 
     /**
-     * @return array<string, mixed>
+     * @return array<model-property<Tenant>, mixed>
      */
     public function definition(): array
     {

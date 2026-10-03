@@ -2,6 +2,10 @@ includes:
     # Larastan is published as larastan/larastan; older installs use
     # vendor/nunomaduro/larastan/extension.neon — fix the path if this errors.
     - vendor/larastan/larastan/extension.neon
+    # Pest's own extension: its expectation and tap-proxy classes are
+    # dynamic. Normally loaded by phpstan/extension-installer, which this
+    # project does not use.
+    - vendor/pestphp/pest/extension.neon
 
 parameters:
     level: 6
@@ -12,4 +16,6 @@ parameters:
     tmpDir: .phpstan.cache
     checkModelProperties: true
     checkOctaneCompatibility: false
+    stubFiles:
+        - tests/phpstan/pest.stub
     ignoreErrors: []
