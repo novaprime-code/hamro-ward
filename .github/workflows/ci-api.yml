@@ -3,9 +3,9 @@ name: api
 on:
   push:
     branches: [main]
-    paths: ["apps/api/**", "infra/docker/postgres/**", ".github/workflows/ci-api.yml"]
+    paths: ["apps/api/**", "data/templates/**", "infra/docker/postgres/**", ".github/workflows/ci-api.yml"]
   pull_request:
-    paths: ["apps/api/**", "infra/docker/postgres/**", ".github/workflows/ci-api.yml"]
+    paths: ["apps/api/**", "data/templates/**", "infra/docker/postgres/**", ".github/workflows/ci-api.yml"]
 
 concurrency:
   group: api-${{ github.ref }}

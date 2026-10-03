@@ -561,4 +561,11 @@ One CSV file per entity, UTF-8 (NFC), with the header row exactly as below. The 
 **Behaviour:**
 
 * `--dry-run` validates everything and writes a report without changing data.
-* A real run happens inside a single transaction per database: central rows (geography, persons, parties, national sources) first, then the target tenant (`--tenant={local-level-path}`). It emits `import.completed` audit events, outbox events and a revalidation job.
+* A real run happens inside a single transaction per database: central rows (geography, persons, parties, national sources) first, then the target tenant (`--tenant={local-level-path}`). It emits `import.completed` audit events. Outbox events and the revalidation job are not emitted yet: the outbox arrives with the central indexes it feeds, and revalidation is `HW-E08-F01-T04`.
+* Every row is checked before anything is written, and one refused row refuses the whole sheet. Errors name the file, spreadsheet row and column.
+* `admin_units.csv` is never imported together with `--tenant`: a tenant knows only the wards that existed when its reference data was synced, so geography is loaded first and the municipality onboarded before its representatives are.
+* **Refs are global and permanent.** `person_ref`, `party_ref` and `source_ref` become ids through UUIDv5, so the same ref is the same row in every sheet and every run (`D-025`).
+* **Source scope follows source type.** `local_level` and `ward_office` sources are stored in the tenant; every other type is national and stored centrally. A central record (place, person, party) can cite only a national source.
+* `verifications.csv` names its subject as `person:{ref}`, `party:{ref}`, `admin_unit:{path}`, `ward_office:{ward path}`, `office_holding:{person_ref}|{position_key}|{constituency_path}|{seat_index}|{start_date}` or `vacancy:{position_key}|{constituency_path}|{seat_index}|{vacant_from}`. `field` is empty for the record, or a `field_sources` name. It verifies an existing citation and never creates one; the two names must differ (`D-002`, `D-026`).
+* The importer never publishes a place (`D-006`). It publishes a person or party once a verified record-level source backs it (FR-SRC-02), and never unpublishes (`D-027`).
+* Header-only templates and a field guide: `data/templates/`.

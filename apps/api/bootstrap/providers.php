@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 use App\Modules\Demo\Providers\DemoServiceProvider;
+use App\Modules\Imports\Providers\ImportsServiceProvider;
 use App\Modules\Offices\Providers\OfficesServiceProvider;
 use App\Modules\Provenance\Providers\ProvenanceServiceProvider;
 use App\Modules\Support\Providers\SecurityServiceProvider;
@@ -29,5 +30,6 @@ return [
     TenancyConsoleServiceProvider::class,
     ProvenanceServiceProvider::class,
     OfficesServiceProvider::class,
+    ImportsServiceProvider::class,
     DemoServiceProvider::class,
 ];
