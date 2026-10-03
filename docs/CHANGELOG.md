@@ -2,6 +2,80 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-04 — Phase E: tenant isolation, and the API workflow green
+
+`HW-E29-F03-T03` (NFR-SEC-07): the automated suite the SRS makes a merge
+condition, and the two fixes it produced. Before it, CI on the API had been
+red on `main` for every recent run.
+
+### Decided
+
+* **D-028: central evidence is scoped to the municipality in its address.**
+  The evidence endpoint checked tenant subjects (holdings, vacancies, ward
+  offices) against the municipality named in the URL, but central ones only for
+  being published. Any ward in the country could be read under any
+  municipality's URL, and so could any published person. The data is public,
+  but a page whose address says one municipality and whose content is
+  another's is exactly the cross-tenant confusion the boundary exists to
+  prevent. A place must now be in that municipality's own subtree, and a
+  person must hold or have held a seat there — the rule the person page already
+  applied (`D-020`). A party stays national: one party stands everywhere, and
+  its evidence is the same under any address. The suite states that last case
+  explicitly, so changing it is a decision rather than a regression.
+* **A tenant whose schema is behind the code is in maintenance.**
+  `hw:tenant:migrate` stops at the first failure, so after a failed deploy step
+  every municipality after that one stayed "active" on the old schema and was
+  served by code expecting columns it did not have. `ResolveTenant` now answers
+  503 for that municipality alone (`HW-E29-F03-T01`, its remaining acceptance
+  criterion).
+
+### Code — api
+
+* `tests/Feature/Tenancy/TenantIsolationTest.php`. Two municipalities, each
+  loaded through `hw:import` with its own people, party, seat, vacancy, ward
+  office and local document, all verified; every assertion runs in both
+  directions.
+  * **Every endpoint is classified.** The suite reads the router and fails when
+    an `api.v1` route is neither on the tenant list nor on the central list.
+    Isolation tested only for the endpoints that existed when the test was
+    written stops being a property of the system the first time someone adds
+    a route.
+  * Each tenant endpoint answers about its own municipality and carries none of
+    the other's ids, names, addresses or paths; every id of the other one 404s
+    through this one's address.
+  * Central endpoints open no tenant at all, the tenant ends after every
+    request, queued jobs run in the municipality that dispatched them even when
+    the worker was last inside the other, and an import touches only the
+    tenant it named.
+  * Responses are compared after re-encoding without escapes. Laravel writes
+    `/` as `\/`, so a slug path can never match the raw body — a leak of the
+    other municipality's path would have passed unseen.
+  * Checked against the bug it was written for: with the D-028 fix reverted,
+    the suite fails.
+
+### CI
+
+* **The API workflow passes**: Pint, PHPStan (0 errors, nothing baselined,
+  `ignoreErrors` still empty), Pest (280), `composer audit`.
+  * Pint: the Laravel preset applied to 30 files that predated it.
+  * PHPStan, tests: a stub states what `tests/Pest.php` already does — Feature
+    and Unit closures run on `Tests\TestCase` — and Pest's bundled extension is
+    loaded. Call sites fixed where analysis was right: `TestResponse::collect()`
+    instead of `collect($response->json())`, `arch()` in closure form, chained
+    `->not` expectations split, and a typed `testCase()` helper.
+  * PHPStan, app: Builder generics on 14 scopes; search results typed as one
+    shape, built by one method both mappers share; nullable timestamps
+    annotated as nullable; `verifiedSourceLinks()` returns the relation instead
+    of relying on `__call`; dead null-safe calls removed.
+* The importer's sheet helpers moved into `tests/Pest.php`, shared by both
+  suites.
+
+### Still open
+
+* The staff endpoints NFR-SEC-07 also covers do not exist yet. When they do,
+  the classification test fails until they are added to it.
+* `ci-api.yml` still has no `docker build` smoke check.
+
 ## 2026-10-03 — Phase D: the importer (`hw:import`)
 
 `HW-E06-F02-T01`, the bridge from demonstration data to real data. Until now

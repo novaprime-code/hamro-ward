@@ -1,6 +1,6 @@
 # Current state
 
-**As of:** 2026-10-03
+**As of:** 2026-10-04
 **Purpose:** what actually exists and runs today, so work can resume without
 rereading the history. Updated whenever the answer to "what is deployed?"
 changes.
@@ -103,6 +103,13 @@ Templates and a field guide in `data/templates/`.
 **Audit trail** — append-only `audit_events` in central and in every tenant.
 Only the importer writes to it so far.
 
+**Tenant isolation** (`HW-E29-F03-T03`, Phase E) — a suite that runs every
+public endpoint, queued jobs and the importer against two municipalities and
+fails on any cross-tenant data, and on any new route nobody has classified.
+Evidence for places and people is scoped to the municipality in its address
+(`D-028`), and a municipality whose schema is behind the code answers 503 on
+its own. CI on the API is green.
+
 ---
 
 ## 4. The demonstration data
@@ -186,10 +193,9 @@ In the order that unblocks the most:
    exists.
 2. **Collect and import the pilot sheet** (`HW-E06-F01`, `HW-E06-F02-T02`) using
    `data/templates/`, with the dry-run report reviewed by a second person.
-3. **`TenantIsolationTest`** (`HW-E29-F03-T03`), now unblocked by the importer.
-4. **The authentication spike** (`HW-E30-F01-T01`), run by someone who can test
+3. **The authentication spike** (`HW-E30-F01-T01`), run by someone who can test
    cookie and guard behaviour against real hosts.
-5. **Bring `09_UX_UI_SPEC.md` up to date** with the palettes, the shadcn
+4. **Bring `09_UX_UI_SPEC.md` up to date** with the palettes, the shadcn
    component set and the screens as built.
 
 ---
@@ -200,7 +206,7 @@ In the order that unblocks the most:
 `D-015` environment-agnostic images · `D-016` two stacks, build-only pipelines,
 manual deploy · `D-017` shadcn mapped onto the palettes · `D-020`–`D-021`
 person and evidence pages · `D-022`–`D-024` saved wards · `D-025`–`D-027`
-the importer.
+the importer · `D-028` evidence scoped to its municipality.
 
 Full text and reasoning in `DECISIONS.md` up to `D-016`; from `D-017` on, under
 "Decided" in `CHANGELOG.md`.

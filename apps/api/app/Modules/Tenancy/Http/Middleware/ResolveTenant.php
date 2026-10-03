@@ -8,6 +8,7 @@ use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Geography\Models\AdminUnitSlug;
 use App\Modules\Tenancy\Models\Tenant;
+use App\Modules\Tenancy\Support\TenantSchema;
 use App\Modules\Tenancy\TenantManager;
 use Closure;
 use Illuminate\Http\Request;
@@ -52,7 +53,16 @@ final class ResolveTenant
             throw new NotFoundHttpException('That municipality is not on Hamro Ward yet.');
         }
 
-        if (! $tenant->isActive()) {
+        /*
+         * A tenant whose schema is not the one this code was written against
+         * is in maintenance too, whatever its status says. hw:tenant:migrate
+         * stops at the first failure, so after a failed deploy step every
+         * municipality after that one is still "active" on the old schema —
+         * and would be served by new code that expects columns it does not
+         * have. Only that municipality waits; the others are unaffected
+         * (HW-E29-F03-T01).
+         */
+        if (! $tenant->isActive() || $tenant->schema_version !== self::expectedSchema()) {
             throw new ServiceUnavailableHttpException(
                 300,
                 'This municipality is temporarily unavailable while its data is being updated.',
@@ -80,6 +90,21 @@ final class ResolveTenant
      * 301 redirects (FR-GEO-05) are handled by the redirect route, not by
      * silently serving the new content at an old address.
      */
+    /**
+     * The newest tenant migration this deployment ships. Read from disk once
+     * per process: the set of migration files only changes with a new image.
+     */
+    private static function expectedSchema(): ?string
+    {
+        static $expected = false;
+
+        if ($expected === false) {
+            $expected = TenantSchema::expectedVersion();
+        }
+
+        return $expected;
+    }
+
     private function localLevelFrom(Request $request): AdminUnit
     {
         $path = implode('/', array_map(

@@ -6,14 +6,18 @@ use App\Modules\Geography\Actions\RefreshSlugPaths;
 use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Enums\LocalLevelType;
 use App\Modules\Geography\Models\AdminUnit;
+use App\Modules\Geography\Models\AdminUnitSlug;
 use App\Modules\Geography\Models\TenantAdminUnit;
+use App\Modules\Imports\Support\ImportFile;
 use App\Modules\Tenancy\Actions\CreateTenantDatabase;
 use App\Modules\Tenancy\Actions\DropTenantDatabase;
 use App\Modules\Tenancy\Actions\MigrateTenant;
 use App\Modules\Tenancy\Actions\SyncTenantReferenceData;
 use App\Modules\Tenancy\Models\Tenant;
+use App\Modules\Tenancy\TenantManager;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Pest\Support\HigherOrderTapProxy;
 use Tests\TestCase;
 
@@ -148,4 +152,74 @@ function withTenantDatabase(Closure $test, ?Tenant $tenant = null): void
     } finally {
         app(DropTenantDatabase::class)->handle($tenant);
     }
+}
+
+/*
+| Import sheets (hw:import). Shared by the importer's own tests and by the
+| tenant isolation suite, which builds its two municipalities through the
+| importer so that real, verified evidence sits on both sides of the boundary.
+|
+| Sheets are written to a fresh temporary directory each, removed when the
+| process ends.
+*/
+
+/**
+ * Writes a sheet to a fresh directory. Rows are given by column name; the
+ * header is always the exact one from docs/05 §13, in its order.
+ *
+ * @param  array<string, list<array<string, string>>>  $files
+ */
+function sheet(array $files): string
+{
+    $directory = sys_get_temp_dir().'/hw-import-'.bin2hex(random_bytes(6));
+    File::ensureDirectoryExists($directory);
+    register_shutdown_function(static fn (): bool => File::deleteDirectory($directory));
+
+    foreach ($files as $name => $rows) {
+        $columns = ImportFile::from($name)->columns();
+        $handle = fopen($directory.'/'.$name, 'w');
+        fputcsv($handle, $columns, escape: '');
+
+        foreach ($rows as $row) {
+            fputcsv($handle, array_map(fn (string $column): string => $row[$column] ?? '', $columns), escape: '');
+        }
+
+        fclose($handle);
+    }
+
+    return $directory;
+}
+
+/** @param  array<string, mixed>  $options */
+function runImport(string $directory, array $options = []): int
+{
+    $report = $directory.'/report.md';
+
+    return testCase()->artisan('hw:import', ['directory' => $directory, '--force' => true, '--report' => $report, ...$options])
+        ->run();
+}
+
+function lastReport(string $directory): string
+{
+    return (string) file_get_contents($directory.'/report.md');
+}
+
+/** The tenant's local level as a slug path, e.g. pradesh-x/jilla-y/nagar-z. */
+function tenantPath(Tenant $tenant): string
+{
+    return (string) AdminUnitSlug::query()
+        ->where('admin_unit_id', $tenant->admin_unit_id)
+        ->where('is_current', true)
+        ->value('slug_path');
+}
+
+/**
+ * @template T
+ *
+ * @param  Closure(): T  $callback
+ * @return T
+ */
+function inTenant(Tenant $tenant, Closure $callback): mixed
+{
+    return app(TenantManager::class)->run($tenant, $callback, allowInactive: true);
 }
