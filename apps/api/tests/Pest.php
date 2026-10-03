@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Geography\Actions\RefreshSlugPaths;
 use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Enums\LocalLevelType;
 use App\Modules\Geography\Models\AdminUnit;
@@ -84,6 +85,16 @@ function tenantWithPublishedWards(
     for ($offset = 1; $offset <= $unpublishedWards; $offset++) {
         AdminUnit::factory()->ward($wards + $offset)->childOf($localLevel)->create();
     }
+
+    /*
+     * Real onboarding cannot reach a unit that has no slug path — the command
+     * resolves the local level BY its path, and RefreshSlugPaths walks the
+     * whole current subtree, so the wards always have one too. Building the
+     * fixture without this left admin_unit_slugs empty, the sync had nothing
+     * to copy, and a tenant came up with null slug_paths: no ward URLs at
+     * all, in the fixture every seat test runs on.
+     */
+    app(RefreshSlugPaths::class)->handle($localLevel->refresh());
 
     return Tenant::factory()->forLocalLevel($localLevel)->create();
 }

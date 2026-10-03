@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Provenance\Enums\ProvenanceType;
 use App\Modules\Provenance\Enums\SourceScope;
 use App\Modules\Provenance\Enums\SourceTypeKey;
+use App\Modules\Provenance\Enums\VerificationStatus;
 use App\Modules\Provenance\Models\Source;
 use App\Modules\Provenance\Models\SourceLink;
 use App\Modules\Provenance\Models\TenantSource;
@@ -127,4 +128,21 @@ it('only accepts tenant subject types in a tenant database', function (): void {
             ]))->toThrow(QueryException::class);
         });
     });
+});
+
+/*
+ * Both link models, in one test, on purpose.
+ *
+ * BaseSourceLink carries the unverified default so a link is never in an
+ * undefined verification state, but TenantSourceLink declares its own
+ * $attributes for source_scope — and redeclaring that property in PHP
+ * REPLACES the parent's rather than merging. The default silently applied to
+ * central links and not to tenant ones, which is the half that holds ward
+ * page evidence. Asserting them together is what makes that asymmetry fail
+ * loudly instead of passing quietly.
+ */
+it('starts every source link unverified, central and tenant alike', function (): void {
+    expect((new SourceLink)->verification_status)->toBe(VerificationStatus::Unverified)
+        ->and((new TenantSourceLink)->verification_status)->toBe(VerificationStatus::Unverified)
+        ->and((new TenantSourceLink)->source_scope)->toBe(SourceScope::Tenant);
 });

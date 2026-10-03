@@ -43,15 +43,29 @@ function verify(string $subjectType, string $subjectId): void
         'retrieved_at' => now(),
     ]);
 
-    TenantSourceLink::query()->create([
+    $link = TenantSourceLink::query()->create([
         'source_id' => $source->id,
         'subject_type' => $subjectType,
         'subject_id' => $subjectId,
         'provenance_type' => ProvenanceType::Official,
+    ]);
+
+    /*
+     * The three verification columns are deliberately outside $fillable —
+     * verification is applied by the verification workflow (HW-E17-F02) and
+     * never mass-assigned. Passing them to create() the way this helper used
+     * to does not raise anything; Eloquent drops them, the link is stored
+     * unverified, and every seat this helper was supposed to verify stayed
+     * not_verified. forceFill is what the workflow itself will do.
+     *
+     * All three go together: the table CHECKs that a verified link carries
+     * both a verifier and a timestamp.
+     */
+    $link->forceFill([
         'verification_status' => 'verified',
         'verified_by' => (string) Str::uuid(),
         'verified_at' => now(),
-    ]);
+    ])->save();
 }
 
 it('generates every seat a ward is supposed to have, filled or not', function (): void {
