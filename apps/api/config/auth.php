@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Accounts\Models\User;
+use App\Modules\Staff\Models\StaffUser;
 
 return [
 
@@ -44,6 +45,13 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Staff sign in on the admin host only (docs/12 §11.1); the host-based
+        // wiring arrives with ConfigureAuthForHost (HW-E30-F01-T01).
+        'staff' => [
+            'driver' => 'session',
+            'provider' => 'staff_users',
+        ],
     ],
 
     /*
@@ -67,6 +75,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'staff_users' => [
+            'driver' => 'eloquent',
+            'model' => StaffUser::class,
         ],
 
         // 'users' => [

@@ -2,6 +2,47 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-06 — Phase J: who on staff may act where
+
+`HW-E13-F01-T01`. Staff accounts and their authority, before any staff login
+exists (`HW-E13-F01-T03`) — so that every staff endpoint built from here on is
+written against the real permission model, not a placeholder.
+
+### What exists now
+
+* **`staff_users`**, central, separate from citizen `users` and on its own
+  `staff` guard (`12` §11.1). Email is citext; two-factor columns are present,
+  encrypted, and constrained (confirmed implies a secret), but enrolment comes
+  with login. Secrets never serialise.
+* **`staff_memberships`**: one role — `moderator`, `verifier`, `data_editor`
+  or `viewer` — for one person in one municipality. A partial unique index
+  allows one live membership per person per tenant. Memberships are revoked,
+  never edited or deleted: a trigger refuses anything else, so "who could
+  moderate here in March" always has an answer.
+* **`StaffTenantPolicy`** on `Tenant`: `view` (any role), `moderate`, `verify`,
+  `editData` (that role only), `manage` (operator admin only). No membership is
+  a **404** — a moderator in one municipality does not learn another's queue
+  exists; the wrong role is a **403**. An inactive account has no authority
+  anywhere, whatever its memberships say.
+* **`GrantTenantRole` / `RevokeTenantRole`**: operator admin only. A change of
+  role is a revocation plus a grant in one transaction, both in the central
+  audit trail with the admin as actor; granting the same role twice is a no-op.
+
+### Decided
+
+* **D-032: `operator_admin` is a column, not a spatie role.** `12` §11.5 names
+  spatie/laravel-permission for global roles. There is exactly one global role,
+  and tenant roles are deliberately not spatie roles, so the package would
+  carry five tables for one flag. `staff_users.global_role` is checked against
+  the known values; adopting spatie later is a data migration if global
+  permissions multiply.
+
+### Not in this batch
+
+* Staff login, mandatory TOTP, lockout and session timeouts (`HW-E13-F01-T03`);
+  affiliation declarations and recusals (`HW-E13-F01-T04`); a way to create
+  the first operator admin, which belongs with login.
+
 ## 2026-10-05 — Phase I: where citizen reports will live
 
 `HW-E11-F01-T01`, the first v0.2 task. Schema only: nothing accepts a report
