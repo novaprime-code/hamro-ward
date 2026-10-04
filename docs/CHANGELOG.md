@@ -2,6 +2,52 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-04 — Phase G: pages refresh when the data changes
+
+`HW-E08-F01-T04`. Until now a cached page was refreshed only by its own timer
+(60 s for a ward, an hour for the sitemap). Laravel now tells the web tier which
+pages are stale the moment a change commits.
+
+### How it works
+
+* **Tags on every fetch.** Each API fetch in the web tier carries `public`,
+  plus `index` (cross-municipality lists) or `place:{province/district/local}`
+  (everything at one municipality's address). The names live in one module on
+  each side — `lib/cache-tags.ts` and `Publishing\Support\CacheTags` — and the
+  web route refuses any tag outside that grammar.
+* **`POST /api/revalidate`** (web) takes `{"tags": [...]}` signed with
+  HMAC-SHA256 over `{timestamp}.{body}`, the timestamp within ±5 minutes, and
+  calls `revalidateTag` for each. It answers 401 for any signature failure
+  without saying which, and 503 when the deployment's secret is missing or is
+  still the placeholder from `.env.example` — a public placeholder is no
+  secret.
+* **`DispatchRevalidation`** (api) signs when it runs, not when queued, so a
+  retry after backoff is still inside the window; five tries, then the page
+  refreshes on its own timer anyway. With no `REVALIDATE_URL` it does nothing,
+  which is how local development and the test suite run.
+* **What triggers it.** A committed tenant import: that municipality and the
+  lists. A committed central import: every page, since people and parties
+  appear in any municipality and there is no cheap way to know which. An outbox
+  drain that applied events: that municipality — this is how
+  `RecordOfficeHolding` and `EndOfficeHolding` reach the web tier. Container
+  boot (when migrations run on boot) queues a whole-site refresh, the
+  post-deploy step `06` §17 describes; `hw:revalidate` does the same by hand.
+  Repeats are harmless by design.
+
+### Verified
+
+* The PHP and TypeScript suites pin the same HMAC known-answer vector, so the
+  two sides cannot drift on what is signed.
+* End to end against a production build of the web app: unsigned, mis-signed,
+  stale and wrong-secret requests get 401; Laravel's signed request is
+  accepted; and a ward page that kept showing a renamed person's old name after
+  the database changed showed the new one on the next render after one signal.
+
+### Not in this batch
+
+* Cloudflare purge. `06` §8 puts Cloudflare in front of the web tier; once its
+  cache rules exist, the same tags need a purge call alongside this one.
+
 ## 2026-10-04 — Phase F: the tenant outbox and the central index of person pages
 
 `HW-E29-F03-T02`, and the person half of `HW-E03-F02-T02`. Also the last API CI

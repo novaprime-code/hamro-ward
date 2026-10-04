@@ -6,6 +6,7 @@ namespace App\Modules\Publishing\Providers;
 
 use App\Modules\Publishing\Console\DispatchOutboxCommand;
 use App\Modules\Publishing\Console\RebuildIndexCommand;
+use App\Modules\Publishing\Console\RevalidateCommand;
 use Illuminate\Support\ServiceProvider;
 
 final class PublishingServiceProvider extends ServiceProvider
@@ -16,6 +17,7 @@ final class PublishingServiceProvider extends ServiceProvider
             $this->commands([
                 DispatchOutboxCommand::class,
                 RebuildIndexCommand::class,
+                RevalidateCommand::class,
             ]);
         }
     }

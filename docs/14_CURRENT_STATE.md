@@ -115,6 +115,11 @@ holding writes a tenant outbox event in the same transaction; a job drains it
 into `public_entities`, idempotently. Published paths and the sitemap now list
 person pages without opening any tenant (`D-029`). CI on the API is green.
 
+**On-demand revalidation** (`HW-E08-F01-T04`, Phase G) — imports, outbox drains
+and deploys send signed cache-tag signals to the web tier's `/api/revalidate`,
+so a changed page refreshes on its next request instead of when its timer
+runs out.
+
 ---
 
 ## 4. The demonstration data

@@ -1,3 +1,5 @@
+import { cacheTags } from '@/lib/cache-tags';
+
 /**
  * The read API, typed.
  *
@@ -197,11 +199,16 @@ export type WardDetail = {
 /** Distinguishes "not here" from "could not ask", which the pages treat differently. */
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number };
 
-async function get<T>(path: string, revalidate: number): Promise<ApiResult<T>> {
+/**
+ * `revalidate` is the ceiling on staleness; the tags let Laravel end it early
+ * when the data changes (HW-E08-F01-T04). Every fetch carries `public`, so one
+ * signal can refresh the whole site after a deploy.
+ */
+async function get<T>(path: string, revalidate: number, tags: string[]): Promise<ApiResult<T>> {
   try {
     const response = await fetch(`${ORIGIN}/api/v1${path}`, {
       headers: { Accept: 'application/json' },
-      next: { revalidate },
+      next: { revalidate, tags: [cacheTags.public, ...tags] },
     });
 
     if (!response.ok) {
@@ -250,11 +257,11 @@ async function getUncached<T>(path: string): Promise<ApiResult<T>> {
  * onboarded, which is a deliberate act nobody is waiting on.
  */
 export function fetchLocalLevels(): Promise<ApiResult<LocalLevelSummary[]>> {
-  return get<LocalLevelSummary[]>('/local-levels', 300);
+  return get<LocalLevelSummary[]>('/local-levels', 300, [cacheTags.index]);
 }
 
 export function fetchLocalLevel(path: string): Promise<ApiResult<LocalLevelDetail>> {
-  return get<LocalLevelDetail>(`/local-levels/${path}`, 120);
+  return get<LocalLevelDetail>(`/local-levels/${path}`, 120, [cacheTags.place(path)]);
 }
 
 /**
@@ -262,7 +269,7 @@ export function fetchLocalLevel(path: string): Promise<ApiResult<LocalLevelDetai
  * the thing an editor is watching for after they verify a source.
  */
 export function fetchWard(path: string, ward: number): Promise<ApiResult<WardDetail>> {
-  return get<WardDetail>(`/wards/${path}/${ward}`, 60);
+  return get<WardDetail>(`/wards/${path}/${ward}`, 60, [cacheTags.place(path)]);
 }
 
 /**
@@ -270,7 +277,7 @@ export function fetchWard(path: string, ward: number): Promise<ApiResult<WardDet
  * the same holding from different directions and should not disagree about it.
  */
 export function fetchPerson(path: string, slug: string): Promise<ApiResult<PersonDetail>> {
-  return get<PersonDetail>(`/persons/${path}/${encodeURIComponent(slug)}`, 60);
+  return get<PersonDetail>(`/persons/${path}/${encodeURIComponent(slug)}`, 60, [cacheTags.place(path)]);
 }
 
 /**
@@ -289,6 +296,7 @@ export function fetchEvidence(
   return get<EvidenceDetail>(
     `/evidence/${path}/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}`,
     60,
+    [cacheTags.place(path)],
   );
 }
 
@@ -305,7 +313,7 @@ export async function fetchSearch(query: string): Promise<ApiResult<SearchHit[]>
  * schedule and a municipality opening is not an event anyone is refreshing for.
  */
 export function fetchPublishedPaths(): Promise<ApiResult<PublishedPath[]>> {
-  return get<PublishedPath[]>('/published-paths', 3600);
+  return get<PublishedPath[]>('/published-paths', 3600, [cacheTags.index]);
 }
 
 /** Either script, preferring the reader's own (§16). */

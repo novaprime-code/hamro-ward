@@ -37,6 +37,8 @@ The script dumps the central database **and every municipality database**, pulls
 
 Through Portainer instead: **Update the stack** with **Re-pull image** ticked — but then take the dumps yourself first with `~/scripts/backup.sh`.
 
+Where migrations run on boot (staging), the app container also queues a refresh of every cached public page. Where they don't (production), finish with `docker exec <stack>-app php artisan hw:revalidate`. If pages look stale after a deploy, that is the command to run; if it reports a 401 or 503, `REVALIDATE_SECRET` differs between the app and web containers or is still the placeholder.
+
 ## Rolling back
 
 ```bash

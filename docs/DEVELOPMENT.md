@@ -100,6 +100,7 @@ php artisan hw:import ./sheet --dry-run              # check a CSV sheet; report
 php artisan hw:import ./sheet --tenant=koshi/sunsari/koshara   # load one municipality's rows
 php artisan hw:outbox:dispatch                       # drain every tenant's outbox (scheduled each minute)
 php artisan hw:index:rebuild                         # recompute the person-page index (hourly; after a restore)
+php artisan hw:revalidate [tags...]                  # refresh cached web pages (default: all); needs REVALIDATE_URL
 ```
 
 `hw:demo:seed` is safe to run repeatedly: every identifier is a UUIDv5 over a

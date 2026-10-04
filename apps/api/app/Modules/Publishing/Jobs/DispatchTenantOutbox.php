@@ -6,6 +6,8 @@ namespace App\Modules\Publishing\Jobs;
 
 use App\Modules\Publishing\Actions\IndexPersonPage;
 use App\Modules\Publishing\Models\ProcessedOutboxEvent;
+use App\Modules\Publishing\Support\CacheTags;
+use App\Modules\Publishing\Support\TenantPath;
 use App\Modules\Tenancy\Actions\RecordOutboxEvent;
 use App\Modules\Tenancy\Models\OutboxEvent;
 use App\Modules\Tenancy\Models\Tenant;
@@ -49,11 +51,13 @@ final class DispatchTenantOutbox implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $tenancy->run($tenant, function () use ($indexPersonPage): void {
+        $applied = 0;
+
+        $tenancy->run($tenant, function () use ($indexPersonPage, &$applied): void {
             $central = DB::connection((string) config('tenancy.central_connection'));
 
             foreach (OutboxEvent::query()->pending()->limit(self::BATCH)->get() as $event) {
-                $applied = $central->transaction(function () use ($event, $indexPersonPage): bool {
+                $wasApplied = $central->transaction(function () use ($event, $indexPersonPage): bool {
                     if (ProcessedOutboxEvent::query()->whereKey($event->id)->exists()) {
                         return true;
                     }
@@ -71,11 +75,21 @@ final class DispatchTenantOutbox implements ShouldBeUnique, ShouldQueue
                     return true;
                 });
 
-                if ($applied) {
+                if ($wasApplied) {
                     $event->forceFill(['processed_at' => now()])->save();
+                    $applied++;
                 }
             }
         }, allowInactive: true);
+
+        // Holdings changed outside an import — through RecordOfficeHolding or
+        // EndOfficeHolding — reach the web tier this way. After an import this
+        // repeats the import's own signal, which is harmless.
+        $path = TenantPath::of($tenant);
+
+        if ($applied > 0 && $path !== null) {
+            DispatchRevalidation::dispatch([CacheTags::place($path), CacheTags::INDEX]);
+        }
     }
 
     /**
