@@ -22,6 +22,7 @@
 #       --path=database/migrations/central
 #   docker exec <stack>-app php artisan hw:tenant:migrate
 #   docker exec <stack>-app php artisan hw:tenant:sync-reference
+#   docker exec <stack>-app php artisan hw:revalidate
 # ---------------------------------------------------------------------------
 set -e
 
@@ -76,4 +77,13 @@ echo "[hamroward] tenant reference data"
 if ! php artisan hw:tenant:sync-reference; then
     echo "[hamroward] WARNING: at least one municipality did not receive its reference data."
     echo "[hamroward] Its ward pages will be missing positions until hw:tenant:sync-reference succeeds."
+fi
+
+# Every cached page may now be rendered from an older schema or older data
+# (docs/06 §17). Queued rather than sent: the web container may still be
+# starting, and the queued job retries with backoff. A failure costs freshness
+# only — pages also refresh on their own timers — so it never stops the boot.
+echo "[hamroward] queue revalidation of every public page"
+if ! php artisan hw:revalidate --queue; then
+    echo "[hamroward] WARNING: could not queue revalidation; pages refresh on their own timers."
 fi

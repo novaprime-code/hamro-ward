@@ -15,7 +15,10 @@ use App\Modules\Imports\Support\ImportContext;
 use App\Modules\Imports\Support\ImportFile;
 use App\Modules\Imports\Support\ImportReport;
 use App\Modules\Imports\Support\ImportRow;
+use App\Modules\Publishing\Jobs\DispatchRevalidation;
 use App\Modules\Publishing\Jobs\DispatchTenantOutbox;
+use App\Modules\Publishing\Support\CacheTags;
+use App\Modules\Publishing\Support\TenantPath;
 use App\Modules\Tenancy\Models\Tenant;
 use App\Modules\Tenancy\TenantManager;
 use Illuminate\Database\Connection;
@@ -43,8 +46,8 @@ use Throwable;
  * and a committed tenant import queues the drain that applies them to the
  * central index (docs/12 §4.3).
  *
- * Not done here yet, and named so nobody assumes otherwise: the revalidation
- * job — HW-E08-F01-T04, which depends on this task.
+ * A committed run with changes also queues the signed revalidation of the
+ * pages it made stale (HW-E08-F01-T04).
  */
 final class RunImport
 {
@@ -116,6 +119,10 @@ final class RunImport
             if ($context->tenant !== null && $context->report->committed() && $context->report->changes() > 0) {
                 DispatchTenantOutbox::dispatch((string) $context->tenant->getKey());
             }
+
+            if ($context->report->committed() && $context->report->changes() > 0) {
+                DispatchRevalidation::dispatch($this->staleTags($context));
+            }
         } catch (Throwable $exception) {
             // A bug, not a data problem — data problems are reported per row.
             // Whatever ran is undone in both databases.
@@ -167,6 +174,23 @@ final class RunImport
         }
 
         $report->markCommitted($commit);
+    }
+
+    /**
+     * A municipality's import makes its own pages and the cross-municipality
+     * lists stale. A central import can change people and parties shown in
+     * any municipality, and there is no cheap way to know which, so it
+     * refreshes everything; imports are rare and a re-render is cheap.
+     *
+     * @return list<string>
+     */
+    private function staleTags(ImportContext $context): array
+    {
+        $path = $context->tenant === null ? null : TenantPath::of($context->tenant);
+
+        return $path === null
+            ? [CacheTags::PUBLIC]
+            : [CacheTags::place($path), CacheTags::INDEX];
     }
 
     /** @return list<ImportFile> in processing order */

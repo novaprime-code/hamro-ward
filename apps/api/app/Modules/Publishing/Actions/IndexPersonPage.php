@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Publishing\Actions;
 
-use App\Modules\Geography\Models\AdminUnitSlug;
 use App\Modules\Offices\Models\Person;
 use App\Modules\Offices\Queries\CurrentSeatsQuery;
 use App\Modules\Publishing\Models\PublicEntity;
-use App\Modules\Tenancy\Models\Tenant;
+use App\Modules\Publishing\Support\TenantPath;
 use App\Modules\Tenancy\TenantManager;
 use LogicException;
 
@@ -54,7 +53,7 @@ final class IndexPersonPage
             return $entity;
         }
 
-        $path = 'person/'.$this->localLevelPath($tenant).'/'.$person->slug;
+        $path = 'person/'.TenantPath::of($tenant).'/'.$person->slug;
 
         $entity ??= new PublicEntity([
             'entity_type' => 'person',
@@ -76,13 +75,5 @@ final class IndexPersonPage
         }
 
         return $entity;
-    }
-
-    private function localLevelPath(Tenant $tenant): string
-    {
-        return (string) AdminUnitSlug::query()
-            ->where('admin_unit_id', $tenant->admin_unit_id)
-            ->where('is_current', true)
-            ->value('slug_path');
     }
 }
