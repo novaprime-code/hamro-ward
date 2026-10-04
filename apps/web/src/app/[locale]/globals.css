@@ -70,8 +70,9 @@
   --color-plate-number: var(--plate-number);
 
   /* --- type --------------------------------------------------------------- */
-  --font-display: var(--font-anek), system-ui, sans-serif;
-  --font-sans: var(--font-noto), system-ui, sans-serif;
+  /* Devanagari and Latin subsets are separate faces (lib/fonts.ts). */
+  --font-display: var(--font-anek-deva), var(--font-anek-latin), system-ui, sans-serif;
+  --font-sans: var(--font-noto-deva), var(--font-noto-latin), system-ui, sans-serif;
 
   /* --- radius ------------------------------------------------------------- */
   /* shadcn components use rounded-sm/md/lg/xl; these derive from the card

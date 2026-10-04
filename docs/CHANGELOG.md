@@ -44,6 +44,17 @@ workaround. The picker rows get their own padding (CardContent's `pt-0`
 assumes a header above it), sit in two columns from tablet width, and the
 footer stays at the bottom of short pages.
 
+### Fonts are vendored, not fetched at build time
+
+`next build` was failing intermittently in CI inside `next/font/google`'s
+loader (`Cannot read properties of null (reading '1')`), twice in an hour on
+unrelated changes: the build downloads the font files from Google, and that
+request is outside our control. Anek Devanagari and Noto Sans Devanagari are now
+committed under `apps/web/src/fonts/` (Fontsource's variable-weight subsets, SIL
+OFL 1.1, licences alongside) and loaded with `next/font/local`, one face per
+Devanagari/Latin subset with its `unicode-range`. Same files, same output, and
+the build makes no network request for them.
+
 ## 2026-10-07 — Phase N: Fortify and Sanctum, for both kinds of account
 
 At the owner's direction, sign-in moves onto **Laravel Fortify** with

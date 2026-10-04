@@ -6,7 +6,7 @@ import { SiteFooter } from '@/components/layout/site-footer';
 import { SiteHeader } from '@/components/layout/site-header';
 import { isLocale } from '@/i18n/config';
 import { getMessages, translator } from '@/i18n/messages';
-import { anek, noto } from '@/lib/fonts';
+import { fontVariables } from '@/lib/fonts';
 import { operator } from '@/lib/operator';
 import { siteUrl } from '@/lib/site';
 import { resolveTheme } from '@/lib/theme';
@@ -108,7 +108,7 @@ export default async function LocaleLayout({
   const theme = resolveTheme();
 
   return (
-    <html lang={locale} data-theme={theme} className={`${anek.variable} ${noto.variable}`}>
+    <html lang={locale} data-theme={theme} className={fontVariables}>
       <body className="flex min-h-dvh flex-col bg-background text-foreground">
         <BetaBanner message={t('beta.banner')} />
         <SiteHeader

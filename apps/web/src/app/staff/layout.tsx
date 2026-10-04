@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { anek, noto } from '@/lib/fonts';
+import { fontVariables } from '@/lib/fonts';
 import { resolveTheme } from '@/lib/theme';
 
 import '../[locale]/globals.css';
@@ -24,7 +24,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   return (
     // The same palette and type as the public site (HW_THEME), so a staff
     // screen is recognisably the same service.
-    <html lang="en" data-theme={resolveTheme()} className={`${anek.variable} ${noto.variable}`}>
+    <html lang="en" data-theme={resolveTheme()} className={fontVariables}>
       <body className="min-h-dvh bg-background text-foreground">
         <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
       </body>
