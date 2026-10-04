@@ -2,6 +2,66 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-06 — Phase M: staff can sign in, and only with two-factor
+
+`HW-E13-F01-T02` and `HW-E13-F01-T03`. The staff API's front door, built on
+the accounts and memberships of Phase J and the admin host of Phase K.
+
+### Same-origin sessions (`T02`)
+
+* **Sanctum** is installed for `/sanctum/csrf-cookie`; the browser reaches it,
+  and `/api/v1/staff/*`, through the web tier's rewrites, so there is no CORS
+  configuration anywhere. `SESSION_DOMAIN` stays null (host-only cookies) and
+  `SANCTUM_STATEFUL_DOMAINS` lists both hosts.
+* **`ConfigureSessionForHost`** (global, after TrustProxies) names the session
+  cookie by host: `hw_staff_session` on the admin host, `hw_session`
+  elsewhere. A citizen cookie can never be presented as a staff one.
+* **The admin host** is the host part of `ADMIN_URL`, which every stack
+  already sets. Staff routes are a 404 anywhere else — checked before the
+  session and CSRF middleware, so even a token-less POST gets the 404 rather
+  than a 419 that would admit the route exists. Unset, staff access is off.
+
+### Sign-in (`T03`)
+
+* `POST /api/v1/staff/login` → `{ next: "enrol" | "challenge" }`. The password
+  alone signs nobody in: the session holds a pending sign-in for ten minutes.
+* First sign-in **enrols** (`two-factor/enrol`: a fresh secret, QR as SVG and
+  `otpauth://` URL) and **confirms** with a code, which signs in and returns
+  eight recovery codes, shown once and stored hashed in the encrypted column.
+  Later sign-ins answer a **challenge** with a code or a recovery code.
+* Codes are accepted once — a replay inside the same 30-second window fails —
+  and recovery codes once each.
+* **Lockout**: five failures on one address (wrong password or wrong second
+  step) lock the account for fifteen minutes, audited; the 423 response
+  carries `locked_until` for the sign-in screen. An unknown address gets the
+  same answer as a wrong password. Per-address throttle: 20 a minute.
+* **`AuthenticateStaff`** guards every other staff route: signed in, active,
+  not locked, two-factor confirmed, and inside **30 idle minutes** and
+  **12 hours** from sign-in — otherwise 401 and the session ends.
+* `GET /api/v1/staff/me`: name, operator-admin flag, live memberships;
+  `Cache-Control: private, no-store`.
+* **`hw:staff:create {email} [--operator-admin]`** makes the first operator
+  admin. The password is prompted for, never an argument.
+
+### Decided
+
+* **D-033: staff sign-in uses its own six handlers, not Fortify.** `12` §11.2
+  names this as the fallback if Fortify cannot serve two guards cleanly. The
+  staff flow differs from the citizen one in every rule that matters
+  (mandatory TOTP, forced enrolment, lockout, timeouts, no registration), so
+  the shared code would have been Fortify's controllers and nothing else.
+  TOTP is pragmarx/google2fa (Fortify's own dependency) and the QR is
+  bacon/bacon-qr-code. Citizen sign-in (`HW-E30-F01`) can still use Fortify.
+
+### Verified
+
+* 21 staff tests, including both session limits with time travel, replayed
+  codes, the lockout and its expiry, and enumeration-safe answers.
+* End to end through `next start` and the rewrite: CSRF cookie → a sign-in
+  without the token is 419, with it continues → `/me` is 401 before
+  two-factor → enrol and confirm → `/me` 200 → logout → 401. On the public
+  host, staff routes are 404 and the cookie is `hw_session`.
+
 ## 2026-10-06 — Phase L: public pages are cached again
 
 Found while building Phase K: every public page was served with
