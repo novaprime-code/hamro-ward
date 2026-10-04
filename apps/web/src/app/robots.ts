@@ -1,6 +1,8 @@
 import type { MetadataRoute } from 'next';
+import { headers } from 'next/headers';
 
-import { siteUrl } from '@/lib/site';
+import { isAdminHost } from '@/lib/host-routing';
+import { adminHost, siteUrl } from '@/lib/site';
 
 /**
  * robots.txt (HW-E10).
@@ -27,7 +29,9 @@ import { siteUrl } from '@/lib/site';
  * on this host and reads to anyone auditing the file as though the admin
  * interface were protected. It is not protected by this file and cannot be: a
  * robots file has authority only over the host that serves it. The staff host
- * needs its own, which arrives with the staff dashboard (HW-E13).
+ * needs its own, and gets it here: on the admin host this route answers
+ * `Disallow: /` (HW-E13-F02-T01). The pages there also carry
+ * `X-Robots-Tag: noindex`, which is what actually keeps them out of an index.
  */
 /*
  * Rendered on request. Prerendered, `siteUrl()` would be read on the build
@@ -37,7 +41,11 @@ import { siteUrl } from '@/lib/site';
  */
 export const dynamic = 'force-dynamic';
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  if (isAdminHost((await headers()).get('host'), adminHost())) {
+    return { rules: [{ userAgent: '*', disallow: '/' }] };
+  }
+
   const base = siteUrl().origin;
 
   return {

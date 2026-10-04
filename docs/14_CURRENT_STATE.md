@@ -131,6 +131,10 @@ public ids. Nothing writes to them yet.
 memberships and `StaffTenantPolicy`; operator admin as a global role (`D-032`).
 No staff login yet.
 
+**Admin host** (`HW-E13-F02-T01`, Phase K) — the staff tree is served only on
+`HW_ADMIN_HOST`, with a nonce CSP, `noindex` and `no-store`; `/staff` is a 404
+on the public host.
+
 ---
 
 ## 4. The demonstration data
@@ -211,8 +215,8 @@ The demonstration data is the test data until the owner decides otherwise
 (`D-030`), so work continues on v0.2 against it:
 
 1. **Issue reporting backend** (`HW-E11-F01-T02`…`T04`) on the new schema.
-2. **Staff login and the admin host** (`HW-E13-F01-T02`…`T04`, `HW-E13-F02-T01`);
-   staff accounts and memberships exist.
+2. **Staff login** (`HW-E13-F01-T02`…`T04`, `HW-E13-F02-T02`); staff accounts,
+   memberships and the admin host exist.
 3. **Citizen sign-in** (`HW-E30-F01`), whose cookie and guard behaviour must
    still be checked against real hosts before launch.
 4. **Bring `09_UX_UI_SPEC.md` up to date** with the palettes, the shadcn

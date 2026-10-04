@@ -3,7 +3,9 @@ import type { NextRequest } from 'next/server';
 
 import { DEFAULT_LOCALE, isLocale } from '@/i18n/config';
 import { LOCALE_HEADER } from '@/i18n/locale-header';
+import { routeFor, staffSecurityHeaders } from '@/lib/host-routing';
 import { clientAddress, createRateLimiter } from '@/lib/rate-limit';
+import { adminHost } from '@/lib/site';
 
 /**
  * Locale routing and the per-address request ceiling.
@@ -13,9 +15,11 @@ import { clientAddress, createRateLimiter } from '@/lib/rate-limit';
  *   /ward/...    -> /ne/ward/...
  *   /en/ward/... -> unchanged
  *
- * Host routing for the staff dashboard is added in HW-E13-F02-T01: requests to
- * the admin host are rewritten into the (staff) route group, and public-host
- * requests for staff routes return 404.
+ * Host routing for the staff dashboard (HW-E13-F02-T01, lib/host-routing.ts):
+ * every page request to the admin host is rewritten into the /staff tree and
+ * answered with a nonce CSP, noindex and no-store; a request for /staff on the
+ * public host is a 404. HW_ADMIN_HOST is read per request, so one image serves
+ * any environment (D-015).
  *
  * ---------------------------------------------------------------------------
  * Why the limit is here and not in Laravel
@@ -77,6 +81,40 @@ export function middleware(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl;
+  const route = routeFor(request.headers.get('host'), pathname, adminHost());
+
+  if (route.kind === 'passthrough') {
+    const response = NextResponse.next();
+
+    if (route.admin) {
+      applyHeaders(response, staffSecurityHeaders(nonce()));
+    }
+
+    return response;
+  }
+
+  if (route.kind === 'staff') {
+    const headers = staffSecurityHeaders(nonce(), process.env.NODE_ENV === 'development');
+    const forwarded = new Headers(request.headers);
+
+    // Next.js reads the policy from the REQUEST to put the nonce on its scripts.
+    forwarded.set('Content-Security-Policy', headers['Content-Security-Policy']);
+
+    const url = request.nextUrl.clone();
+    url.pathname = route.pathname;
+
+    return applyHeaders(NextResponse.rewrite(url, { request: { headers: forwarded } }), headers);
+  }
+
+  if (route.kind === 'not-found') {
+    // The public site's own 404, in the default locale: the staff tree does
+    // not exist here, and the page says so the way any missing page does.
+    const url = request.nextUrl.clone();
+    url.pathname = `/${DEFAULT_LOCALE}/_staff-not-here`;
+
+    return NextResponse.rewrite(url);
+  }
+
   const [, maybeLocale] = pathname.split('/');
 
   if (isLocale(maybeLocale)) {
@@ -101,6 +139,18 @@ export function middleware(request: NextRequest) {
   url.pathname = `/${DEFAULT_LOCALE}${pathname === '/' ? '' : pathname}`;
 
   return NextResponse.redirect(url);
+}
+
+function nonce(): string {
+  return btoa(crypto.randomUUID());
+}
+
+function applyHeaders(response: NextResponse, headers: Record<string, string>): NextResponse {
+  for (const [name, value] of Object.entries(headers)) {
+    response.headers.set(name, value);
+  }
+
+  return response;
 }
 
 export const config = {
