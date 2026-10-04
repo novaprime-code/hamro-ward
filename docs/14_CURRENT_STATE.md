@@ -127,6 +127,10 @@ is one, copy-link with a spoken "Link copied" where there is not.
 `issues` and an append-only status timeline in every tenant, and tenant-prefixed
 public ids. Nothing writes to them yet.
 
+**Staff authority** (`HW-E13-F01-T01`, Phase J) — staff accounts, per-municipality
+memberships and `StaffTenantPolicy`; operator admin as a global role (`D-032`).
+No staff login yet.
+
 ---
 
 ## 4. The demonstration data
@@ -207,7 +211,8 @@ The demonstration data is the test data until the owner decides otherwise
 (`D-030`), so work continues on v0.2 against it:
 
 1. **Issue reporting backend** (`HW-E11-F01-T02`…`T04`) on the new schema.
-2. **Staff identity and the admin host** (`HW-E13-F01`, `HW-E13-F02-T01`).
+2. **Staff login and the admin host** (`HW-E13-F01-T02`…`T04`, `HW-E13-F02-T01`);
+   staff accounts and memberships exist.
 3. **Citizen sign-in** (`HW-E30-F01`), whose cookie and guard behaviour must
    still be checked against real hosts before launch.
 4. **Bring `09_UX_UI_SPEC.md` up to date** with the palettes, the shadcn

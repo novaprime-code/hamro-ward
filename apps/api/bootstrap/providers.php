@@ -6,6 +6,7 @@ use App\Modules\Imports\Providers\ImportsServiceProvider;
 use App\Modules\Offices\Providers\OfficesServiceProvider;
 use App\Modules\Provenance\Providers\ProvenanceServiceProvider;
 use App\Modules\Publishing\Providers\PublishingServiceProvider;
+use App\Modules\Staff\Providers\StaffServiceProvider;
 use App\Modules\Support\Providers\SecurityServiceProvider;
 use App\Modules\Tenancy\Providers\TenancyConsoleServiceProvider;
 use App\Modules\Tenancy\Providers\TenancyServiceProvider;
@@ -33,5 +34,6 @@ return [
     OfficesServiceProvider::class,
     ImportsServiceProvider::class,
     PublishingServiceProvider::class,
+    StaffServiceProvider::class,
     DemoServiceProvider::class,
 ];
