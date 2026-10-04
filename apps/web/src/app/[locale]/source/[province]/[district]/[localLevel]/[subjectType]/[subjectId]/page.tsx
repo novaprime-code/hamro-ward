@@ -20,6 +20,14 @@ type PageParams = {
 
 export const revalidate = 60;
 
+/**
+ * Empty on purpose: pages are rendered on first request and then cached
+ * (ISR), never at build time. See generateStaticParams in [locale]/layout.tsx.
+ */
+export function generateStaticParams(): Record<string, string>[] {
+  return [];
+}
+
 export async function generateMetadata({ params }: { params: Promise<PageParams> }) {
   const { locale, province, district, localLevel, subjectType, subjectId } = await params;
 

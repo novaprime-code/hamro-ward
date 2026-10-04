@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 import { DEFAULT_LOCALE, isLocale } from '@/i18n/config';
-import { LOCALE_HEADER } from '@/i18n/locale-header';
 import { routeFor, staffSecurityHeaders } from '@/lib/host-routing';
 import { clientAddress, createRateLimiter } from '@/lib/rate-limit';
 import { adminHost } from '@/lib/site';
@@ -118,21 +117,7 @@ export function middleware(request: NextRequest) {
   const [, maybeLocale] = pathname.split('/');
 
   if (isLocale(maybeLocale)) {
-    /*
-     * The locale, forwarded to the server components that cannot read it from
-     * route params. `not-found.tsx` is the one that matters: Next never gives
-     * it params, and it has to stay a server component — a 'use client'
-     * not-found page is not server-rendered at all, so a visitor on a slow
-     * phone gets an empty 404 until the JavaScript arrives, and a crawler gets
-     * one permanently.
-     *
-     * Set on the REQUEST headers, not the response: this is input for the
-     * render, not something the browser needs.
-     */
-    const headers = new Headers(request.headers);
-    headers.set(LOCALE_HEADER, maybeLocale);
-
-    return NextResponse.next({ request: { headers } });
+    return NextResponse.next();
   }
 
   const url = request.nextUrl.clone();

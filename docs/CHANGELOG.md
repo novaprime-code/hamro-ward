@@ -2,6 +2,47 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-06 — Phase L: public pages are cached again
+
+Found while building Phase K: every public page was served with
+`Cache-Control: private, no-store` and rendered on every request. The
+`revalidate` each page exports never took effect, so no shared cache — this
+server's own full-route cache, or Cloudflare — kept a copy. The API was
+spared only because Next's fetch cache still held the data.
+
+### Two causes, both needed fixing
+
+* **No `generateStaticParams` under `[locale]`.** Without it, Next treats every
+  page beneath a dynamic segment as dynamic. The layout and each nested
+  dynamic page (municipality, ward, person, source) now export one that
+  returns an **empty** list: pages render on their first request and are
+  cached from then on. Empty rather than the two locales, so nothing is
+  rendered at image build time — the API does not run then, and a build-time
+  render would also freeze environment values into the image (`D-015`).
+* **`not-found.tsx` read `headers()`.** Next renders that boundary as part of
+  every page in the segment, so its header read made all of them dynamic
+  ("Page changed from static to dynamic at runtime … reason: headers"). The
+  404 page stays a server component and renders `NotFoundBody`, a client
+  component that reads the locale from the URL with `usePathname()`. The
+  `x-hw-locale` request header and `i18n/locale-header.ts` had no other
+  reader and are gone.
+
+### Verified against `next start`
+
+* Ward, municipality, home and about pages: `MISS` then `HIT`, with
+  `Cache-Control: s-maxage=<revalidate>, stale-while-revalidate`.
+* A signed `/api/revalidate` for the municipality's tag turns the cached ward
+  page back into a `MISS`, then `HIT` with fresh content.
+* Search stays uncached by design; unknown addresses and missing wards still
+  404, with the heading in the right language in a browser.
+* No API call during the build.
+
+### Found, not fixed here
+
+* The 404 response's HTML is React's empty error shell, filled in by
+  JavaScript — on `main` as well. A crawler or a phone without JavaScript sees
+  a blank page with the right status code.
+
 ## 2026-10-06 — Phase K: the admin host
 
 `HW-E13-F02-T01`. One Next.js server now answers two hosts, and the staff one
@@ -33,8 +74,8 @@ the public site unchanged.
 ### Found, not fixed here
 
 * Public pages are served with `Cache-Control: private, no-store` on `main`
-  too, so the 60-second ISR window never reaches a shared cache. Worth its own
-  change before Cloudflare caching is relied on.
+  too, so the 60-second ISR window never reaches a shared cache. Fixed in
+  Phase L.
 
 ## 2026-10-06 — Phase J: who on staff may act where
 
