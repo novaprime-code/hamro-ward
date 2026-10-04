@@ -71,6 +71,19 @@ docker exec -it hamroward-app php artisan hw:tenant:create koshi/sunsari/<slug>
 
 It asks for the `hw_provisioner` password, which is deliberately not in the stack's environment. This creates and prepares the database but **publishes nothing** — the municipality appears publicly only after its units are published, which happens after the data is checked by a second person.
 
+## The first operator admin
+
+Staff are invite-only, so the first account is made on the server:
+
+```sh
+docker exec -it <stack>-app php artisan hw:staff:create you@example.org --operator-admin
+```
+
+It asks for the password. The first sign-in, on the admin host, forces
+two-factor enrolment and shows eight recovery codes once: keep them somewhere
+that is not the phone. A locked account (five failures) unlocks by itself
+after fifteen minutes.
+
 ## Taking a municipality offline
 
 ```bash
