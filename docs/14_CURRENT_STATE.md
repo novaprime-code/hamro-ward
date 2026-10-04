@@ -120,6 +120,9 @@ and deploys send signed cache-tag signals to the web tier's `/api/revalidate`,
 so a changed page refreshes on its next request instead of when its timer
 runs out.
 
+**Share button** (`HW-E09-F01-T04`, Phase H) — native share sheet where there
+is one, copy-link with a spoken "Link copied" where there is not.
+
 ---
 
 ## 4. The demonstration data
@@ -154,8 +157,8 @@ Demo path: `/ne` → `/ne/palika/koshi/sunsari/koshara` → wards 1 to 4 in orde
 
 Issue reporting and moderation (`HW-E11`, `HW-E14`), citizen sign-in
 (`HW-E30-F01`), the staff dashboard and staff accounts (`HW-E13`), media upload,
-promises, the election module, the AI assistant, outbox events and on-demand
-revalidation (`HW-E08-F01-T04`), and a command to publish a place. Also: no
+promises, the election module, the AI assistant, Cloudflare cache purge
+alongside revalidation, and a command to publish a place. Also: no
 real geography import has been run — the importer exists, the data does not.
 
 ---

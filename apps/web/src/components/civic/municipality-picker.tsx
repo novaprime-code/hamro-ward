@@ -23,8 +23,8 @@ import type { LocalLevelSummary } from '@/lib/api';
  * name in Devanagari, in romanised form, or only from the URL all reach the
  * same place.
  *
- * Every label arrives as a finished string. This is the app's only client
- * component, so anything it receives is serialised across the boundary — a
+ * Every label arrives as a finished string. This is a client component, so
+ * anything it receives is serialised across the boundary — a
  * function would fail the render, not degrade.
  */
 export function MunicipalityPicker({

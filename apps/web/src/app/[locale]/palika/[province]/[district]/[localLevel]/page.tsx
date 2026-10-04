@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { CoverageLine } from '@/components/civic/coverage-line';
 import { SeatList } from '@/components/civic/seat-list';
+import { ShareButton } from '@/components/civic/share-button';
 import { StateNotice } from '@/components/civic/state-notice';
 import { buttonVariants } from '@/components/ui/button';
 import { formatNumber, isLocale } from '@/i18n/config';
@@ -88,6 +89,13 @@ export default async function LocalLevelPage({ params }: { params: Promise<PageP
   return (
     <div className="space-y-6 pt-6">
       <header className="space-y-1">
+        <div className="flex justify-end">
+          <ShareButton
+            path={`/${locale}/palika/${place.slug_path}`}
+            title={pick(place.name, locale)}
+            labels={{ share: t('share.button'), copied: t('share.copied'), failed: t('share.copyFailed') }}
+          />
+        </div>
         <p className="text-sm text-muted-foreground">
           {pick(place.province, locale)} › {pick(place.district, locale)}
         </p>
