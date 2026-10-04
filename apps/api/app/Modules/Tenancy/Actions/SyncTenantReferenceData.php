@@ -7,6 +7,7 @@ namespace App\Modules\Tenancy\Actions;
 use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Geography\Models\AdminUnitSlug;
+use App\Modules\Issues\Models\IssueCategory;
 use App\Modules\Offices\Models\Position;
 use App\Modules\Provenance\Models\SourceType;
 use App\Modules\Tenancy\Exceptions\ReferenceDataException;
@@ -21,12 +22,13 @@ use Illuminate\Support\Collection;
  * HW-E29-F02-T02).
  *
  * PostgreSQL cannot join across databases. Anything a tenant query needs inside
- * a WHERE or a JOIN therefore has to exist inside the tenant, and three things
+ * a WHERE or a JOIN therefore has to exist inside the tenant, and four things
  * qualify:
  *
- *   source_types   the authority ranking every provenance badge reads
- *   positions      the seat catalogue office_holdings and v_current_seats join
- *   admin_units    this local level's slice of the hierarchy — and only that
+ *   source_types      the authority ranking every provenance badge reads
+ *   positions         the seat catalogue office_holdings and v_current_seats join
+ *   issue_categories  what issues.category_key refers to
+ *   admin_units       this local level's slice of the hierarchy — and only that
  *
  * The geography copy is a SUBTREE, not a copy of the table: country, province,
  * district, this local level, its wards. A tenant database that cannot name the
@@ -50,20 +52,22 @@ final class SyncTenantReferenceData
     ) {}
 
     /**
-     * @return array{source_types: int, positions: int, admin_units: int, reference_version: int}
+     * @return array{source_types: int, positions: int, issue_categories: int, admin_units: int, reference_version: int}
      */
     public function handle(Tenant $tenant): array
     {
         $sourceTypes = $this->sourceTypeRows();
         $positions = $this->positionRows();
+        $categories = $this->issueCategoryRows();
         $units = $this->adminUnitRows($tenant);
 
-        $this->tenancy->run($tenant, function () use ($sourceTypes, $positions, $units): void {
+        $this->tenancy->run($tenant, function () use ($sourceTypes, $positions, $categories, $units): void {
             $connection = $this->ownerConnection();
 
-            $connection->transaction(function () use ($connection, $sourceTypes, $positions, $units): void {
+            $connection->transaction(function () use ($connection, $sourceTypes, $positions, $categories, $units): void {
                 $this->replicate($connection, 'source_types', 'key', $sourceTypes);
                 $this->replicate($connection, 'positions', 'key', $positions);
+                $this->replicate($connection, 'issue_categories', 'key', $categories);
                 $this->replicate($connection, 'admin_units', 'id', $units);
             });
         }, allowInactive: true);
@@ -75,6 +79,7 @@ final class SyncTenantReferenceData
         return [
             'source_types' => count($sourceTypes),
             'positions' => count($positions),
+            'issue_categories' => count($categories),
             'admin_units' => count($units),
             'reference_version' => (int) $tenant->reference_version,
         ];
@@ -149,6 +154,27 @@ final class SyncTenantReferenceData
                 'ballot_order' => $position->ballot_order,
                 'valid_from' => $position->valid_from?->toDateString(),
                 'valid_to' => $position->valid_to?->toDateString(),
+                'synced_at' => $now,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function issueCategoryRows(): array
+    {
+        $now = now();
+
+        return IssueCategory::query()
+            ->orderBy('sort')
+            ->get()
+            ->map(fn (IssueCategory $category): array => [
+                'key' => $category->key,
+                'label_ne' => $category->label_ne,
+                'label_en' => $category->label_en,
+                'icon' => $category->icon,
+                'sort' => $category->sort,
+                'is_active' => $category->is_active,
                 'synced_at' => $now,
             ])
             ->values()

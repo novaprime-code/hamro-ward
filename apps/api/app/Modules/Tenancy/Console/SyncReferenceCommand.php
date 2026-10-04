@@ -51,10 +51,11 @@ final class SyncReferenceCommand extends Command
                 $this->components->twoColumnDetail(
                     $tenant->tenant_key,
                     sprintf(
-                        'v%d · %d source types · %d positions · %d units',
+                        'v%d · %d source types · %d positions · %d issue categories · %d units',
                         $result['reference_version'],
                         $result['source_types'],
                         $result['positions'],
+                        $result['issue_categories'],
                         $result['admin_units'],
                     ),
                 );

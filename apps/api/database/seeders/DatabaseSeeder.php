@@ -19,6 +19,7 @@ final class DatabaseSeeder extends Seeder
         $this->call([
             SourceTypeSeeder::class,
             PositionSeeder::class,
+            IssueCategorySeeder::class,
         ]);
     }
 }

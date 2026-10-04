@@ -56,8 +56,8 @@ pnpm dev
 
 `http://localhost:3000/ne` should list four municipalities.
 
-**Order matters.** `db:seed` loads the source types and the positions catalogue.
-`hw:demo:seed` copies the positions catalogue into each tenant database it
+**Order matters.** `db:seed` loads the source types, the positions catalogue
+and the issue categories. `hw:demo:seed` copies them into each tenant database it
 creates, so running it first produces four municipalities with no seats and no
 error.
 
