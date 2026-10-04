@@ -123,6 +123,10 @@ runs out.
 **Share button** (`HW-E09-F01-T04`, Phase H) — native share sheet where there
 is one, copy-link with a spoken "Link copied" where there is not.
 
+**Issue schema** (`HW-E11-F01-T01`, Phase I) — categories (central, replicated),
+`issues` and an append-only status timeline in every tenant, and tenant-prefixed
+public ids. Nothing writes to them yet.
+
 ---
 
 ## 4. The demonstration data
@@ -155,7 +159,7 @@ Demo path: `/ne` → `/ne/palika/koshi/sunsari/koshara` → wards 1 to 4 in orde
 
 ## 5. What is not built
 
-Issue reporting and moderation (`HW-E11`, `HW-E14`), citizen sign-in
+Issue reporting beyond its schema, moderation (`HW-E11`, `HW-E14`), citizen sign-in
 (`HW-E30-F01`), the staff dashboard and staff accounts (`HW-E13`), media upload,
 promises, the election module, the AI assistant, Cloudflare cache purge
 alongside revalidation, and a command to publish a place. Also: no
@@ -199,17 +203,18 @@ real geography import has been run — the importer exists, the data does not.
 
 ## 8. What to do next
 
-In the order that unblocks the most:
+The demonstration data is the test data until the owner decides otherwise
+(`D-030`), so work continues on v0.2 against it:
 
-1. **Choose the pilot municipality** (`D-006`). It gates real data collection
-   and has been open since 15 September. Everything needed to load it now
-   exists.
-2. **Collect and import the pilot sheet** (`HW-E06-F01`, `HW-E06-F02-T02`) using
-   `data/templates/`, with the dry-run report reviewed by a second person.
-3. **The authentication spike** (`HW-E30-F01-T01`), run by someone who can test
-   cookie and guard behaviour against real hosts.
+1. **Issue reporting backend** (`HW-E11-F01-T02`…`T04`) on the new schema.
+2. **Staff identity and the admin host** (`HW-E13-F01`, `HW-E13-F02-T01`).
+3. **Citizen sign-in** (`HW-E30-F01`), whose cookie and guard behaviour must
+   still be checked against real hosts before launch.
 4. **Bring `09_UX_UI_SPEC.md` up to date** with the palettes, the shadcn
    component set and the screens as built.
+
+Choosing a pilot municipality (`D-006`) and loading real data
+(`HW-E06-F01`, `HW-E06-F02-T02`) wait for the owner's decision.
 
 ---
 

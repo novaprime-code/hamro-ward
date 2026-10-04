@@ -46,7 +46,9 @@ final class TenantDatabaseName
         for ($attempt = 0; $attempt < 10; $attempt++) {
             $key = bin2hex(random_bytes(4));
 
-            if (! Tenant::query()->where('tenant_key', $key)->exists()) {
+            // The first four characters must be unique too: they prefix issue
+            // public ids and route them to this tenant (IssuePublicId).
+            if (! Tenant::query()->whereRaw('left(tenant_key, 4) = ?', [substr($key, 0, 4)])->exists()) {
                 return $key;
             }
         }

@@ -2,6 +2,51 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-05 — Phase I: where citizen reports will live
+
+`HW-E11-F01-T01`, the first v0.2 task. Schema only: nothing accepts a report
+yet (`HW-E11-F01-T02`), and no citizen can sign in to send one.
+
+### What exists now
+
+* **`issue_categories`**, central, with the fourteen keys from `05` §6.1 and
+  Nepali and English labels (`IssueCategorySeeder`, run by `db:seed`). Each
+  tenant gets a read-only replica through `SyncTenantReferenceData`, so
+  `issues.category_key` is a real foreign key. A category is retired, never
+  deleted.
+* **`issues`**, per tenant, as `05` §6.2. `moderation_state` and
+  `lifecycle_status` are separate columns with separate checks: whether the
+  public may see a report and what happened to the problem are different
+  questions, and a rejected report about a fixed drain is a legitimate state.
+  The ward must be a ward (trigger), an approved report must have a
+  `published_at`, and the length limits are database checks. The reporter is
+  an account id with no foreign key, a relationship snapshot that is never
+  public, and nothing else; the model hides both from `toArray()` and does not
+  map the location at all.
+* **`issue_status_events`**, the public timeline, append-only for every role
+  including the owner, as `audit_events` is.
+* **Public ids** look like `5f3a-7K2MQ9XW4R`: the first four characters of the
+  tenant key, then ten Crockford base32 characters. The prefix routes a code
+  to its municipality without a global lookup (`12` §6); the alphabet has no
+  I, L, O or U, and a code typed in lowercase or with look-alikes is read back
+  correctly.
+
+### Decided
+
+* **D-030: demonstration data is the test data until the owner says otherwise.**
+  No pilot municipality and no real people are loaded or planned around for
+  now; features are built and shown on the four municipalities `hw:demo:seed`
+  creates. Choosing a pilot (`D-006`) stays open and no longer blocks work.
+* **D-031: the first four characters of a tenant key are unique.** Issue
+  public ids carry them, so two tenants sharing them would make a code
+  ambiguous. `tenants_key_prefix_unique` enforces it, and key generation
+  retries on a prefix clash — at most 753 tenants in 65,536 prefixes.
+
+### Not in this batch
+
+* `issue_media` waits for the media table (`HW-E12`); `issue_confirmations`
+  (v0.4) and `content_flags` (v0.3) wait for their versions.
+
 ## 2026-10-04 — Phase H: a share button
 
 `HW-E09-F01-T04` (FR-SHR-04). Ward, person and municipality pages carry a
