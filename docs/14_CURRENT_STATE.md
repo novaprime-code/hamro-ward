@@ -135,10 +135,11 @@ No staff login yet.
 `HW_ADMIN_HOST`, with a nonce CSP, `noindex` and `no-store`; `/staff` is a 404
 on the public host.
 
-**Staff sign-in** (`HW-E13-F01-T02`, `T03`, Phase M) — password then mandatory
-TOTP (enrolment forced at first sign-in), recovery codes, lockout, 30-minute
-idle and 12-hour absolute limits, host-specific session cookies. API only;
-the screens are `HW-E13-F02-T02`.
+**Sign-in** (`HW-E13-F01-T02`, `T03`, Phases M–N) — Laravel Fortify with
+Sanctum cookie sessions, one set of routes for both hosts (`D-034`). Staff:
+mandatory TOTP (enrolment forced), recovery codes, lockout, 30-minute idle and
+12-hour absolute limits. Citizens: sign-in, password reset, profile. API only;
+the screens are `HW-E13-F02-T02` and `HW-E30-F01-T03`.
 
 ---
 

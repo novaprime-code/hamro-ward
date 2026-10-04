@@ -14,10 +14,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Carbon;
+use Laravel\Fortify\TwoFactorAuthenticatable;
 
 /**
  * A member of staff (docs/05 §9, docs/12 §11.1). Invite-only, on the admin
  * host and the `staff` guard; never the same row as a citizen account.
+ *
+ * Two-factor is Fortify's (D-033): it encrypts the secret and the recovery
+ * codes itself, which is why those columns carry no cast here.
  *
  * @property string $id
  * @property string $name
@@ -33,6 +37,7 @@ final class StaffUser extends Authenticatable
     use HasFactory;
 
     use HasUuids;
+    use TwoFactorAuthenticatable;
     use UsesCentralConnection;
 
     protected $table = 'staff_users';
@@ -59,8 +64,6 @@ final class StaffUser extends Authenticatable
             'is_active' => 'boolean',
             'locked_until' => 'immutable_datetime',
             'last_login_at' => 'immutable_datetime',
-            'two_factor_secret' => 'encrypted',
-            'two_factor_recovery_codes' => 'encrypted',
             'two_factor_confirmed_at' => 'immutable_datetime',
         ];
     }

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use App\Modules\Staff\Http\Middleware\ConfigureSessionForHost;
+use App\Modules\Staff\Http\Middleware\AuthenticateForHost;
+use App\Modules\Staff\Http\Middleware\ConfigureAuthForHost;
 use App\Modules\Staff\Http\Middleware\EnsureAdminHost;
 use App\Modules\Support\TrustedProxies;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,24 +18,27 @@ return Application::configure(basePath: dirname(__DIR__))
         apiPrefix: 'api/v1',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
-        // Staff sign-in and, later, the staff API: session and CSRF from the
-        // `web` group, admin host only (routes/staff.php). The host check
-        // comes first, so off the admin host even a request without a CSRF
-        // token gets the 404 — a 419 would say there is something here.
-        then: function (): void {
-            Route::middleware([EnsureAdminHost::class, 'web'])->prefix('api/v1/staff')->group(base_path('routes/staff.php'));
-        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Tenancy resolution middleware is registered here in HW-E29-F03-T01.
-        // The session cookie is chosen from the host before any session
-        // starts: hw_staff_session on the admin host, hw_session elsewhere
-        // (docs/12 §11.1). Appended, not prepended: it must run after
-        // TrustProxies, or behind the web tier it sees the proxy's address
-        // instead of the forwarded admin host. Sessions start in the route
-        // groups, after every global middleware. Citizen guard switching
-        // joins it in HW-E30-F01-T01.
-        $middleware->append(ConfigureSessionForHost::class);
+        /*
+         * Sign-in is Fortify, sessions are Sanctum's cookie-based SPA mode
+         * (docs/12 §11, D-033). The host picks the guard, the password
+         * broker and the session cookie before any session starts —
+         * appended, so it runs after TrustProxies and sees the forwarded host.
+         */
+        $middleware->append(ConfigureAuthForHost::class);
+
+        // Session and CSRF for /api requests from the two first-party hosts
+        // (SANCTUM_STATEFUL_DOMAINS). The web tier's server-side reads carry
+        // no Origin, so they stay stateless — and cacheable.
+        $middleware->statefulApi();
+
+        $middleware->alias(['auth.host' => AuthenticateForHost::class]);
+
+        // Off the admin host, /api/v1/staff/* is a 404 before session, CSRF
+        // or authentication can answer 419 or 401 and admit that it exists.
+        $middleware->append(EnsureAdminHost::class);
 
         /*
          * Which callers may set X-Forwarded-*, and therefore decide what

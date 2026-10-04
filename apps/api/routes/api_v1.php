@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Modules\Accounts\Http\Controllers\MeController;
 use App\Modules\Geography\Http\Controllers\LocalLevelController;
 use App\Modules\Geography\Http\Controllers\SearchController;
 use App\Modules\Offices\Http\Controllers\PersonController;
 use App\Modules\Offices\Http\Controllers\WardController;
 use App\Modules\Provenance\Http\Controllers\EvidenceController;
 use App\Modules\Publishing\Http\Controllers\PublishedPathsController;
+use App\Modules\Staff\Http\Controllers\StaffMeController;
 use App\Modules\Support\Http\Controllers\HealthController;
 use App\Modules\Tenancy\Http\Middleware\ResolveTenant;
 use Illuminate\Support\Facades\Route;
@@ -92,4 +94,22 @@ Route::middleware('throttle:public-read')->group(function (): void {
             ->whereUuid('subject_id')
             ->name('api.v1.evidence.show');
     });
+});
+
+// ---- Signed in ---------------------------------------------------------------
+
+/*
+ * Cookie sessions through Sanctum's SPA mode (docs/12 §11.2). Signing in and
+ * out is Fortify's, at /login, /two-factor-challenge and /user/* — reached
+ * same-origin through the web tier. `auth.host` authenticates against the
+ * guard the host selected, and for staff also requires confirmed two-factor
+ * and a session inside its limits.
+ */
+Route::middleware(['auth:sanctum', 'auth.host'])->group(function (): void {
+    Route::get('/me', MeController::class)->name('api.v1.me');
+});
+
+// Admin host only: EnsureAdminHost (global) answers 404 anywhere else.
+Route::middleware(['auth:sanctum', 'auth.host'])->prefix('staff')->group(function (): void {
+    Route::get('/me', StaffMeController::class)->name('api.v1.staff.me');
 });
