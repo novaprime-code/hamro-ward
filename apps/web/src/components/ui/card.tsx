@@ -16,6 +16,12 @@ import { cn } from '@/lib/utils';
  * components arrived. This is the one that was described in the docs without
  * being implemented, so a card meant to be a link was silently a card with a
  * link in it.
+ *
+ * `block` because the element it becomes may be inline. An <a> is: with block
+ * content inside it, its border and background wrapped each line box
+ * separately, which drew the municipality list as stray vertical rules with no
+ * card around the text. A <div> is block already, so this changes nothing for
+ * plain cards.
  */
 function Card({
   className,
@@ -27,7 +33,7 @@ function Card({
   return (
     <Comp
       data-slot="card"
-      className={cn('rounded-card border border-border bg-card text-card-foreground', className)}
+      className={cn('block rounded-card border border-border bg-card text-card-foreground', className)}
       {...props}
     />
   );

@@ -138,8 +138,8 @@ on the public host.
 **Sign-in** (`HW-E13-F01-T02`, `T03`, Phases M–N) — Laravel Fortify with
 Sanctum cookie sessions, one set of routes for both hosts (`D-034`). Staff:
 mandatory TOTP (enrolment forced), recovery codes, lockout, 30-minute idle and
-12-hour absolute limits. Citizens: sign-in, password reset, profile. API only;
-the screens are `HW-E13-F02-T02` and `HW-E30-F01-T03`.
+12-hour absolute limits. Citizens: sign-in, password reset, profile. Staff
+screens on the admin host (Phase O); citizen screens are `HW-E30-F01-T03`.
 
 ---
 
@@ -221,8 +221,8 @@ The demonstration data is the test data until the owner decides otherwise
 (`D-030`), so work continues on v0.2 against it:
 
 1. **Issue reporting backend** (`HW-E11-F01-T02`…`T04`) on the new schema.
-2. **Staff sign-in screens and declarations** (`HW-E13-F02-T02`,
-   `HW-E13-F01-T04`); the sign-in API exists.
+2. **Affiliation declarations and the moderation core** (`HW-E13-F01-T04`,
+   `HW-E14-F01`); staff can sign in.
 3. **Citizen sign-in** (`HW-E30-F01`), whose cookie and guard behaviour must
    still be checked against real hosts before launch.
 4. **Bring `09_UX_UI_SPEC.md` up to date** with the palettes, the shadcn

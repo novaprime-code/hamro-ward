@@ -171,7 +171,7 @@ function Hit({
 
   return (
     <Card asChild>
-      <Link href={href} className="block p-4 transition-colors hover:bg-muted focus-visible:bg-muted">
+      <Link href={href} className="p-4 transition-colors hover:bg-muted focus-visible:bg-muted">
         <span className="block font-display text-[19px] font-semibold">{heading}</span>
         {hit.local_level_type === null ? null : (
           <span className="mt-0.5 block text-sm text-muted-foreground">

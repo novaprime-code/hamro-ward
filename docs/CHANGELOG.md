@@ -2,6 +2,48 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-07 — Phase O: staff sign-in screens, and the landing page's cards
+
+### Staff sign-in screens (`HW-E13-F02-T02`)
+
+On the admin host, `/` (the `/staff` tree) is now one client component that
+walks the states Fortify defines, all same-origin:
+
+* **Sign in** → `POST /login`. With two-factor on, **challenge** →
+  `POST /two-factor-challenge`; a code or a recovery code in the same field.
+* **First sign-in** (Laravel answers 403 `two_factor_required`): confirm the
+  password, then a QR code (an `<img>` from a `data:` URL, never injected
+  markup, under the strict CSP) with the key printed for manual entry, then
+  the first code, then the eight **recovery codes — Continue stays disabled
+  until "I have saved these codes" is ticked** (acceptance criterion).
+* **Lockout** shows when the next try is possible: "Try again in 15 minutes,
+  at 21:20." (acceptance criterion); the per-address throttle says how long
+  to wait.
+* **Signed in**: name, operator-admin badge, the municipalities and roles
+  from `/api/v1/staff/me`, and sign out.
+
+The parsing and wording (`lib/staff-auth.ts`: XSRF cookie, Fortify's
+answers, the lockout sentence) are plain functions with tests. The staff
+layout now takes the same theme and fonts as the public site (`lib/fonts.ts`
+shared by both), so the screens are recognisably the same service.
+
+Driven end to end in Chromium on the admin host against the real API: sign
+in → forced enrolment with a code computed from the shown key → recovery
+codes (Continue disabled until ticked) → signed in with the right
+municipality and role → sign out → sign in with a recovery code → five wrong
+passwords → the lockout sentence with its time.
+
+### The landing page's municipality list
+
+The cards had lost their surface: stray vertical rules above and below each
+name and no box around it. `Card asChild` renders the card as the link
+itself, and an `<a>` is inline — with block content inside, its border and
+background wrapped each line box separately. `Card` is now `block` (a no-op
+for a `<div>`), which also fixes the search results without their local
+workaround. The picker rows get their own padding (CardContent's `pt-0`
+assumes a header above it), sit in two columns from tablet width, and the
+footer stays at the bottom of short pages.
+
 ## 2026-10-07 — Phase N: Fortify and Sanctum, for both kinds of account
 
 At the owner's direction, sign-in moves onto **Laravel Fortify** with
