@@ -15,6 +15,7 @@ use App\Modules\Imports\Support\ImportContext;
 use App\Modules\Imports\Support\ImportFile;
 use App\Modules\Imports\Support\ImportReport;
 use App\Modules\Imports\Support\ImportRow;
+use App\Modules\Publishing\Jobs\DispatchTenantOutbox;
 use App\Modules\Tenancy\Models\Tenant;
 use App\Modules\Tenancy\TenantManager;
 use Illuminate\Database\Connection;
@@ -38,10 +39,12 @@ use Throwable;
  * refers to: harmless, and fixed by re-running. The other order could leave a
  * municipality pointing at people who do not exist.
  *
- * Not done here yet, and named so nobody assumes otherwise:
- *  - outbox events (docs/12 §4.3) — the outbox table and its consumer arrive
- *    with the central indexes they feed (HW-E11, HW-E30-F03);
- *  - the revalidation job — HW-E08-F01-T04, which depends on this task.
+ * Every holding it changes writes an outbox event in the tenant transaction,
+ * and a committed tenant import queues the drain that applies them to the
+ * central index (docs/12 §4.3).
+ *
+ * Not done here yet, and named so nobody assumes otherwise: the revalidation
+ * job — HW-E08-F01-T04, which depends on this task.
  */
 final class RunImport
 {
@@ -107,6 +110,12 @@ final class RunImport
             }
 
             $this->finish($context->report, $central, $tenant);
+
+            // After the commit, never before: a drain queued inside the
+            // transaction could run before the events it is meant to read exist.
+            if ($context->tenant !== null && $context->report->committed() && $context->report->changes() > 0) {
+                DispatchTenantOutbox::dispatch((string) $context->tenant->getKey());
+            }
         } catch (Throwable $exception) {
             // A bug, not a data problem — data problems are reported per row.
             // Whatever ran is undone in both databases.

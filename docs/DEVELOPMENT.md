@@ -98,6 +98,8 @@ php artisan hw:demo:seed                             # idempotent, re-runnable
 php artisan hw:demo:drop                             # drops the demo tenants
 php artisan hw:import ./sheet --dry-run              # check a CSV sheet; report in storage/app/imports/
 php artisan hw:import ./sheet --tenant=koshi/sunsari/koshara   # load one municipality's rows
+php artisan hw:outbox:dispatch                       # drain every tenant's outbox (scheduled each minute)
+php artisan hw:index:rebuild                         # recompute the person-page index (hourly; after a restore)
 ```
 
 `hw:demo:seed` is safe to run repeatedly: every identifier is a UUIDv5 over a

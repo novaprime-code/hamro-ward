@@ -9,6 +9,7 @@ use App\Modules\Geography\Models\TenantAdminUnit;
 use App\Modules\Imports\Support\Cells;
 use App\Modules\Imports\Support\ImportContext;
 use App\Modules\Imports\Support\ImportFile;
+use App\Modules\Imports\Support\ImportReport;
 use App\Modules\Imports\Support\ImportRow;
 use App\Modules\Imports\Support\RowRejected;
 use App\Modules\Imports\Support\SubjectRef;
@@ -24,6 +25,7 @@ use App\Modules\Provenance\Enums\SourceTypeKey;
 use App\Modules\Provenance\Models\Source;
 use App\Modules\Provenance\Models\TenantSource;
 use App\Modules\Provenance\Models\TenantSourceLink;
+use App\Modules\Tenancy\Actions\RecordOutboxEvent;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -54,6 +56,8 @@ final class ImportTenantRows
     ];
 
     private ImportContext $context;
+
+    public function __construct(private readonly RecordOutboxEvent $outbox) {}
 
     /** @param  array<string, list<ImportRow>>  $rows  by file name */
     public function handle(ImportContext $context, array $rows): void
@@ -152,7 +156,7 @@ final class ImportTenantRows
             ->where('start_date', $startDate->toDateString())
             ->first() ?? new OfficeHolding;
 
-        $this->context->persist($holding, [
+        $outcome = $this->context->persist($holding, [
             'person_id' => $personId,
             'position_key' => $positionKey,
             'constituency_id' => $constituency->id,
@@ -166,6 +170,12 @@ final class ImportTenantRows
         ], 'office_holding', tenantSide: true);
 
         $holdingId = (string) $holding->id;
+
+        // In the same tenant transaction as the holding, so the central index
+        // learns of exactly the changes that commit (docs/12 §4.3).
+        if ($outcome !== ImportReport::OUTCOME_UNCHANGED) {
+            $this->outbox->holdingChanged($holdingId, $personId);
+        }
 
         if (($sourceRef = $row->get('source_ref')) !== null) {
             $this->context->link(true, 'office_holding', $holdingId, null, $sourceRef, 'source_ref');

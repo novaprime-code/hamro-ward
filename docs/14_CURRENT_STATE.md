@@ -108,7 +108,12 @@ public endpoint, queued jobs and the importer against two municipalities and
 fails on any cross-tenant data, and on any new route nobody has classified.
 Evidence for places and people is scoped to the municipality in its address
 (`D-028`), and a municipality whose schema is behind the code answers 503 on
-its own. CI on the API is green.
+its own.
+
+**Outbox and central index** (`HW-E29-F03-T02`, Phase F) — every change to a
+holding writes a tenant outbox event in the same transaction; a job drains it
+into `public_entities`, idempotently. Published paths and the sitemap now list
+person pages without opening any tenant (`D-029`). CI on the API is green.
 
 ---
 
@@ -206,7 +211,8 @@ In the order that unblocks the most:
 `D-015` environment-agnostic images · `D-016` two stacks, build-only pipelines,
 manual deploy · `D-017` shadcn mapped onto the palettes · `D-020`–`D-021`
 person and evidence pages · `D-022`–`D-024` saved wards · `D-025`–`D-027`
-the importer · `D-028` evidence scoped to its municipality.
+the importer · `D-028` evidence scoped to its municipality · `D-029` index
+keyed by tenant.
 
 Full text and reasoning in `DECISIONS.md` up to `D-016`; from `D-017` on, under
 "Decided" in `CHANGELOG.md`.

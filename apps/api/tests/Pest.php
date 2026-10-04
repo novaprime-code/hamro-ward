@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Geography\Actions\PublishAdminUnit;
 use App\Modules\Geography\Actions\RefreshSlugPaths;
 use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Enums\LocalLevelType;
@@ -173,7 +174,7 @@ function sheet(array $files): string
 {
     $directory = sys_get_temp_dir().'/hw-import-'.bin2hex(random_bytes(6));
     File::ensureDirectoryExists($directory);
-    register_shutdown_function(static fn (): bool => File::deleteDirectory($directory));
+    register_shutdown_function(static fn () => removeSheet($directory));
 
     foreach ($files as $name => $rows) {
         $columns = ImportFile::from($name)->columns();
@@ -188,6 +189,21 @@ function sheet(array $files): string
     }
 
     return $directory;
+}
+
+/**
+ * Deletes a sheet directory at process exit. Plain PHP on purpose: shutdown
+ * functions run after the application is torn down, when a facade has no
+ * container left to resolve from — and a fatal error there fails the whole
+ * run with exit code 255 after every test has passed.
+ */
+function removeSheet(string $directory): void
+{
+    foreach (glob($directory.'/*') ?: [] as $file) {
+        @unlink($file);
+    }
+
+    @rmdir($directory);
 }
 
 /** @param  array<string, mixed>  $options */
@@ -222,4 +238,19 @@ function tenantPath(Tenant $tenant): string
 function inTenant(Tenant $tenant, Closure $callback): mixed
 {
     return app(TenantManager::class)->run($tenant, $callback, allowInactive: true);
+}
+
+/**
+ * Publishes the country, province and district above a tenant's municipality.
+ * The factory publishes the municipality and its wards but not what sits above
+ * them, and the public read path hides anything under an unpublished
+ * ancestor — so without this, every request about the tenant is a 404.
+ */
+function publishAncestorsOf(Tenant $tenant): void
+{
+    foreach (AdminUnit::query()->findOrFail($tenant->admin_unit_id)->ancestors() as $ancestor) {
+        if (! $ancestor->is_published) {
+            app(PublishAdminUnit::class)->publish($ancestor);
+        }
+    }
 }

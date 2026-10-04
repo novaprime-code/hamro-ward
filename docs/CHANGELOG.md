@@ -2,6 +2,71 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-04 — Phase F: the tenant outbox and the central index of person pages
+
+`HW-E29-F03-T02`, and the person half of `HW-E03-F02-T02`. Also the last API CI
+failure.
+
+### Fixed first
+
+* **The API workflow passed every test and still failed.** Pest exited 255 after
+  printing "280 passed": the importer tests' `sheet()` helper cleaned up its
+  temporary directory in a shutdown function through the `File` facade, and
+  shutdown functions run after the application is torn down. Plain PHP now.
+  CI is green on #264.
+
+### Decided
+
+* **D-029: a page in the central index is keyed by tenant as well as entity.**
+  `05` §9 keys `public_entities` on `(entity_type, entity_id)`. A person page
+  lives at the address of a municipality the person sits in (`D-020`), so one
+  person sitting in two municipalities has two pages; the key is
+  `(entity_type, entity_id, tenant_id)`, with `NULLS NOT DISTINCT` so central
+  rows (no tenant) stay unique.
+* **The outbox lives in Tenancy; the index in Publishing.** Offices records
+  outbox events and Publishing reads Offices to build the index — with both in
+  one module, or the recorder in Publishing, the two depend on each other. An
+  architecture test now keeps the direction one way.
+* **Places stay out of the index for now.** Published paths already lists
+  municipalities and wards from central data without opening any tenant, which
+  is the acceptance criterion. Only person pages, whose existence depends on
+  tenant data, needed the outbox.
+
+### Code — api
+
+* Tenant `outbox_events`, central `public_entities` and `processed_outbox_events`.
+* Every write path for holdings — the importer, `RecordOfficeHolding`,
+  `EndOfficeHolding` — writes an `office_holding.changed` event in the same
+  transaction as the holding. Those two actions now own their transactions,
+  as `06` §3 says actions should.
+* `DispatchTenantOutbox` drains one tenant: applying an event and recording it
+  in `processed_outbox_events` share one central transaction, and only then is
+  the tenant row stamped. A crash in between leaves an event that is skipped,
+  not applied twice. Unique per tenant, so concurrent drains cannot overlap.
+  An unknown event type stays pending for newer code rather than being marked
+  done.
+* `IndexPersonPage` decides whether a page exists with
+  `CurrentSeatsQuery::forPerson()` — the person page's own query — so the
+  sitemap and the page cannot disagree. A page that stops existing is
+  unpublished, not deleted, and `lastmod` moves only when something visible
+  changes.
+* `hw:outbox:dispatch` (every minute) and `hw:index:rebuild` (hourly, and after
+  a restore). The rebuild catches what no outbox announces: a person published
+  centrally, a ward published after onboarding.
+* `/api/v1/published-paths` gains `people` per municipality, from one query
+  over the index. The controller moved from Geography to Publishing.
+
+### Code — web
+
+* The sitemap lists person pages, below ward pages in priority: a reader
+  looking for a representative is better served by the ward, which shows
+  every seat.
+
+### Still open
+
+* The revalidation job (`HW-E08-F01-T04`) can now hang off the same outbox.
+* `user_issue_index` will be the outbox's second consumer, with issues.
+
 ## 2026-10-04 — Phase E: tenant isolation, and the API workflow green
 
 `HW-E29-F03-T03` (NFR-SEC-07): the automated suite the SRS makes a merge
