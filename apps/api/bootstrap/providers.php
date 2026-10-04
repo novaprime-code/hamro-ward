@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use App\Modules\Accounts\Providers\AccountsServiceProvider;
 use App\Modules\Demo\Providers\DemoServiceProvider;
 use App\Modules\Imports\Providers\ImportsServiceProvider;
 use App\Modules\Offices\Providers\OfficesServiceProvider;
@@ -35,5 +36,6 @@ return [
     ImportsServiceProvider::class,
     PublishingServiceProvider::class,
     StaffServiceProvider::class,
+    AccountsServiceProvider::class,
     DemoServiceProvider::class,
 ];

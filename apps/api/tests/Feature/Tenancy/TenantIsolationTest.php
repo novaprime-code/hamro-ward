@@ -59,8 +59,10 @@ const TENANT_ROUTES = [
 const CENTRAL_ROUTES = [
     'api.v1.health',
     'api.v1.local-levels.index',
+    'api.v1.me',
     'api.v1.published-paths',
     'api.v1.search',
+    'api.v1.staff.me',
 ];
 
 /**

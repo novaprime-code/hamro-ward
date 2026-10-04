@@ -16,9 +16,16 @@ const nextConfig: NextConfig = {
     return [
       { source: '/api/v1/:path*', destination: `${apiOrigin}/api/v1/:path*` },
       { source: '/sanctum/:path*', destination: `${apiOrigin}/sanctum/:path*` },
+      // Fortify (docs/12 §11): the same paths on both hosts; Laravel picks
+      // the guard from the host. lib/host-routing.ts lets these through.
       { source: '/login', destination: `${apiOrigin}/login` },
       { source: '/logout', destination: `${apiOrigin}/logout` },
       { source: '/register', destination: `${apiOrigin}/register` },
+      { source: '/forgot-password', destination: `${apiOrigin}/forgot-password` },
+      { source: '/reset-password', destination: `${apiOrigin}/reset-password` },
+      { source: '/two-factor-challenge', destination: `${apiOrigin}/two-factor-challenge` },
+      { source: '/user/:path*', destination: `${apiOrigin}/user/:path*` },
+      { source: '/email/:path*', destination: `${apiOrigin}/email/:path*` },
     ];
   },
 

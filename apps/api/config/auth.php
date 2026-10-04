@@ -46,8 +46,8 @@ return [
             'provider' => 'users',
         ],
 
-        // Staff sign in on the admin host only (docs/12 §11.1); the host-based
-        // wiring arrives with ConfigureAuthForHost (HW-E30-F01-T01).
+        // Staff sign in on the admin host only (docs/12 §11.1);
+        // ConfigureAuthForHost points Fortify and Sanctum at this guard there.
         'staff' => [
             'driver' => 'session',
             'provider' => 'staff_users',
@@ -112,6 +112,14 @@ return [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
             'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        // Selected on the admin host by ConfigureAuthForHost (docs/12 §11.1).
+        'staff_users' => [
+            'provider' => 'staff_users',
+            'table' => 'staff_password_reset_tokens',
+            'expire' => 30,
             'throttle' => 60,
         ],
     ],

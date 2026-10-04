@@ -2,6 +2,79 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-07 — Phase N: Fortify and Sanctum, for both kinds of account
+
+At the owner's direction, sign-in moves onto **Laravel Fortify** with
+**Sanctum's cookie-based SPA sessions**, replacing Phase M's hand-written
+staff handlers. The rules Phase M enforced all still hold; what changed is
+who implements them. This also settles the spike `12` §11.2 assigned to
+`HW-E30-F01-T01`: one set of Fortify routes serves both hosts.
+
+### How one Fortify serves two hosts
+
+* **`ConfigureAuthForHost`** (global, after TrustProxies) sets, per request:
+  session cookie (`hw_staff_session` / `hw_session`), `fortify.guard`
+  (`staff` / `web`), `fortify.passwords` (`staff_users` / `users`) and
+  `sanctum.guard`. Fortify resolves its guard from config per request, so its
+  controllers follow.
+* **`auth.host`** (`AuthenticateForHost`) is Fortify's `auth_middleware`.
+  Fortify writes `auth:<guard>` into its routes when they load, which would pin
+  one guard; this ignores the parameter and uses the host's. For staff it also
+  enforces what Phase M did: inactive or locked → signed out; past 30 idle
+  minutes or 12 hours → signed out; no confirmed two-factor → **403
+  `two_factor_required`** on everything except the enrolment endpoints.
+* **Sanctum** `statefulApi()`: `/api/v1/*` requests from the two first-party
+  origins get a session and CSRF; the web tier's server-side reads carry no
+  Origin and stay stateless, so public pages remain cacheable.
+* **`EnsureAdminHost`** is now global and path-based: `/api/v1/staff/*` off the
+  admin host is a 404 before session, CSRF or auth can answer 419 or 401.
+
+### The endpoints (all same-origin through the web tier's rewrites)
+
+* `POST /login` → `{two_factor: true}` when a challenge follows, else signed
+  in; `POST /two-factor-challenge` with `code` or `recovery_code`;
+  `POST /logout`.
+* Enrolment (staff are forced into it): `POST /user/confirm-password`, then
+  `POST /user/two-factor-authentication`, `GET /user/two-factor-qr-code`,
+  `POST /user/confirmed-two-factor-authentication`,
+  `GET /user/two-factor-recovery-codes`.
+* `POST /forgot-password`, `POST /reset-password` (staff use their own token
+  table, `staff_password_reset_tokens`); `PUT /user/password`,
+  `PUT /user/profile-information`.
+* `GET /api/v1/me` (citizen) and `GET /api/v1/staff/me` (staff), both
+  `auth:sanctum` + `auth.host`, both `Cache-Control: private, no-store`.
+* Registration stays off until citizen sign-up exists with Turnstile and an
+  enumeration-safe response (`HW-E30-F01-T02`).
+
+### Kept from Phase M
+
+* Five failures lock a staff account for fifteen minutes (423 with
+  `locked_until`), now inside `Fortify::authenticateUsing`; an unknown address
+  gets Fortify's standard answer, the same as a wrong password. Fortify's own
+  `login` limiter (10 a minute per address and email) and `two-factor`
+  limiter (5 a minute per pending sign-in) sit on top.
+* Codes are single-use (Fortify caches used codes). Recovery codes: Fortify's
+  eight, encrypted.
+* `hw:staff:create` for the first operator admin.
+
+### Decided
+
+* **D-034: sign-in is Fortify; sessions are Sanctum's cookie-based SPA mode.**
+  Supersedes `D-033`. Owner's decision. One implementation for citizens and
+  staff, switched by host, instead of a staff-only one now and Fortify for
+  citizens later.
+
+### Verified
+
+* 333 tests, including both session limits, the enrolment gate, replayed
+  codes, recovery codes, the lockout and its expiry, and that a staff account
+  cannot sign in on the public host nor a citizen on the admin host.
+* End to end through `next start` and the rewrites, on both hosts: CSRF cookie
+  → login without the token 419, with it 200 → staff `/me` 403 until
+  two-factor is confirmed → 200 → logout → 401; citizen login → `/api/v1/me`
+  200; `/api/v1/staff/me` 404 on the public host; public pages still `HIT`
+  without a cookie.
+
 ## 2026-10-06 — Phase M: staff can sign in, and only with two-factor
 
 `HW-E13-F01-T02` and `HW-E13-F01-T03`. The staff API's front door, built on
@@ -45,7 +118,8 @@ the accounts and memberships of Phase J and the admin host of Phase K.
 
 ### Decided
 
-* **D-033: staff sign-in uses its own six handlers, not Fortify.** `12` §11.2
+* **D-033: staff sign-in uses its own six handlers, not Fortify.**
+  *Superseded by D-034 (Phase N).* `12` §11.2
   names this as the fallback if Fortify cannot serve two guards cleanly. The
   staff flow differs from the citizen one in every rule that matters
   (mandatory TOTP, forced enrolment, lockout, timeouts, no registration), so

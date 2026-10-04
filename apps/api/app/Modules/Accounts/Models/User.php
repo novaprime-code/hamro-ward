@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Laravel\Fortify\TwoFactorAuthenticatable;
 
 /**
  * A citizen account (docs/12 §11.1, §12.1, D-011).
@@ -47,6 +48,7 @@ final class User extends Authenticatable implements MustVerifyEmailContract
 
     use HasUuids;
     use Notifiable;
+    use TwoFactorAuthenticatable;
     use UsesCentralConnection;
 
     /**
