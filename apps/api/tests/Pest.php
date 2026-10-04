@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Geography\Actions\PublishAdminUnit;
 use App\Modules\Geography\Actions\RefreshSlugPaths;
 use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Enums\LocalLevelType;
@@ -237,4 +238,19 @@ function tenantPath(Tenant $tenant): string
 function inTenant(Tenant $tenant, Closure $callback): mixed
 {
     return app(TenantManager::class)->run($tenant, $callback, allowInactive: true);
+}
+
+/**
+ * Publishes the country, province and district above a tenant's municipality.
+ * The factory publishes the municipality and its wards but not what sits above
+ * them, and the public read path hides anything under an unpublished
+ * ancestor — so without this, every request about the tenant is a 404.
+ */
+function publishAncestorsOf(Tenant $tenant): void
+{
+    foreach (AdminUnit::query()->findOrFail($tenant->admin_unit_id)->ancestors() as $ancestor) {
+        if (! $ancestor->is_published) {
+            app(PublishAdminUnit::class)->publish($ancestor);
+        }
+    }
 }

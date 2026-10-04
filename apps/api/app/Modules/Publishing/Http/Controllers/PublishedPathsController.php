@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\Geography\Http\Controllers;
+namespace App\Modules\Publishing\Http\Controllers;
 
 use App\Modules\Geography\Enums\AdminLevel;
 use App\Modules\Geography\Models\AdminUnit;
+use App\Modules\Publishing\Models\PublicEntity;
 use App\Modules\Tenancy\Enums\TenantStatus;
 use App\Modules\Tenancy\Models\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -29,14 +30,20 @@ use Illuminate\Http\JsonResponse;
  * ward page can change without the ward row moving. A crawler treats lastmod as
  * a hint, and a hint that is sometimes early is better than one that is
  * invented.
+ *
+ * `people` lists each municipality's person pages from the central index
+ * (public_entities), filled by the tenant outbox. One query for every
+ * municipality, never one per tenant: the index exists so that this request
+ * does not have to open a single tenant database.
  */
 final class PublishedPathsController
 {
     public function __invoke(): JsonResponse
     {
-        $openLocalLevelIds = Tenant::query()
+        $openTenants = Tenant::query()
             ->where('status', TenantStatus::Active->value)
-            ->pluck('admin_unit_id');
+            ->pluck('id', 'admin_unit_id');
+        $openLocalLevelIds = $openTenants->keys();
 
         if ($openLocalLevelIds->isEmpty()) {
             return response()->json(['data' => []]);
@@ -56,8 +63,16 @@ final class PublishedPathsController
             ->get()
             ->groupBy('parent_id');
 
+        $people = PublicEntity::query()
+            ->where('entity_type', 'person')
+            ->where('is_published', true)
+            ->whereIn('tenant_id', $openTenants->values())
+            ->orderBy('path_en')
+            ->get()
+            ->groupBy('tenant_id');
+
         $data = $localLevels
-            ->map(function (AdminUnit $unit) use ($wards): array {
+            ->map(function (AdminUnit $unit) use ($wards, $people, $openTenants): array {
                 $path = implode('/', array_filter([
                     $unit->parent?->parent?->slug,
                     $unit->parent?->slug,
@@ -73,6 +88,14 @@ final class PublishedPathsController
                         ->map(fn (AdminUnit $ward): array => [
                             'number' => (int) $ward->ward_number,
                             'updated_at' => $ward->updated_at?->toIso8601String(),
+                        ])
+                        ->values()
+                        ->all(),
+                    'people' => $people
+                        ->get((string) $openTenants->get($unit->id), collect())
+                        ->map(fn (PublicEntity $page): array => [
+                            'path' => $page->path_en,
+                            'updated_at' => $page->lastmod->toIso8601String(),
                         ])
                         ->values()
                         ->all(),

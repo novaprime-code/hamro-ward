@@ -57,6 +57,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...entry.wards.flatMap((ward) =>
       entries(base, `ward/${entry.slug_path}/${ward.number}`, ward.updated_at, 0.9),
     ),
+    // Below the ward pages: a reader looking for their representative is
+    // better served arriving at the ward, which shows every seat.
+    ...(entry.people ?? []).flatMap((person) => entries(base, person.path, person.updated_at, 0.6)),
   ]);
 
   /*

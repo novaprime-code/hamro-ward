@@ -9,7 +9,9 @@ use App\Modules\Offices\Models\OfficeHolding;
 use App\Modules\Offices\Models\Party;
 use App\Modules\Offices\Models\Person;
 use App\Modules\Offices\Models\TenantPosition;
+use App\Modules\Tenancy\Actions\RecordOutboxEvent;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Seats a person (docs/05 §5.4, FR-OFF-02).
@@ -26,6 +28,8 @@ use Illuminate\Support\Carbon;
  */
 final class RecordOfficeHolding
 {
+    public function __construct(private readonly RecordOutboxEvent $outbox) {}
+
     /**
      * @param  array{term_label?: string|null, candidacy_id?: string|null, end_date?: string|null, end_reason?: string|null}  $attributes
      */
@@ -62,16 +66,26 @@ final class RecordOfficeHolding
             throw OfficesException::seatAlreadyHeld($positionKey, $seatIndex);
         }
 
-        return OfficeHolding::query()->create([
-            ...$attributes,
-            'person_id' => $personId,
-            'position_key' => $positionKey,
-            'constituency_id' => $constituencyId,
-            'seat_index' => $seatIndex,
-            'party_id' => $partyId,
-            'is_independent' => $isIndependent,
-            'start_date' => $startDate->toDateString(),
-        ]);
+        // The holding and its outbox event commit together or not at all, so
+        // the central index of person pages hears of exactly this change.
+        return DB::connection((string) config('tenancy.tenant_connection'))->transaction(function () use (
+            $attributes, $personId, $positionKey, $constituencyId, $seatIndex, $partyId, $isIndependent, $startDate,
+        ): OfficeHolding {
+            $holding = OfficeHolding::query()->create([
+                ...$attributes,
+                'person_id' => $personId,
+                'position_key' => $positionKey,
+                'constituency_id' => $constituencyId,
+                'seat_index' => $seatIndex,
+                'party_id' => $partyId,
+                'is_independent' => $isIndependent,
+                'start_date' => $startDate->toDateString(),
+            ]);
+
+            $this->outbox->holdingChanged((string) $holding->id, $personId);
+
+            return $holding;
+        });
     }
 
     /**

@@ -9,7 +9,9 @@ use App\Modules\Offices\Enums\VacancyReason;
 use App\Modules\Offices\Exceptions\OfficesException;
 use App\Modules\Offices\Models\OfficeHolding;
 use App\Modules\Offices\Models\Vacancy;
+use App\Modules\Tenancy\Actions\RecordOutboxEvent;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Closes a holding, and optionally records the vacancy it leaves (docs/02 §4.4).
@@ -25,6 +27,8 @@ use Illuminate\Support\Carbon;
  */
 final class EndOfficeHolding
 {
+    public function __construct(private readonly RecordOutboxEvent $outbox) {}
+
     public function handle(
         OfficeHolding $holding,
         Carbon $endDate,
@@ -36,20 +40,27 @@ final class EndOfficeHolding
             throw OfficesException::holdingAlreadyEnded($holding->id);
         }
 
-        $holding->forceFill([
-            'end_date' => $endDate->toDateString(),
-            'end_reason' => $reason,
-        ])->save();
+        DB::connection((string) config('tenancy.tenant_connection'))->transaction(function () use (
+            $holding, $endDate, $reason, $recordVacancy, $vacancyReason,
+        ): void {
+            $holding->forceFill([
+                'end_date' => $endDate->toDateString(),
+                'end_reason' => $reason,
+            ])->save();
 
-        if ($recordVacancy) {
-            Vacancy::query()->create([
-                'position_key' => $holding->position_key,
-                'constituency_id' => $holding->constituency_id,
-                'seat_index' => $holding->seat_index,
-                'vacant_from' => $endDate->toDateString(),
-                'reason' => ($vacancyReason ?? $this->vacancyReasonFor($reason)),
-            ]);
-        }
+            if ($recordVacancy) {
+                Vacancy::query()->create([
+                    'position_key' => $holding->position_key,
+                    'constituency_id' => $holding->constituency_id,
+                    'seat_index' => $holding->seat_index,
+                    'vacant_from' => $endDate->toDateString(),
+                    'reason' => ($vacancyReason ?? $this->vacancyReasonFor($reason)),
+                ]);
+            }
+
+            // An ended term can end a person page in this municipality.
+            $this->outbox->holdingChanged((string) $holding->id, (string) $holding->person_id);
+        });
 
         return $holding->refresh();
     }

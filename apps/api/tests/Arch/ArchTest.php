@@ -32,3 +32,10 @@ arch('foundation modules stay independent', function (): void {
             'App\Modules\Issues',
         ]);
 });
+
+arch('the outbox flows one way: domain modules never reach into Publishing', function (): void {
+    // Publishing reads Offices and Geography to build the index. If they
+    // reached back, a change to a holding could depend on the index existing.
+    expect(['App\Modules\Offices', 'App\Modules\Geography', 'App\Modules\Tenancy', 'App\Modules\Provenance'])
+        ->not->toUse('App\Modules\Publishing');
+});

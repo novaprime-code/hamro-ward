@@ -83,6 +83,13 @@ export type PublishedPath = {
   slug_path: string;
   updated_at: string | null;
   wards: { number: number; updated_at: string | null }[];
+  /**
+   * Person pages in this municipality, from the central index (D-020: a
+   * person page lives at the address of a municipality they sit in). `path`
+   * is relative to the locale root, e.g. `person/koshi/sunsari/x/some-name`.
+   * Absent from responses by an older API, hence optional.
+   */
+  people?: { path: string; updated_at: string | null }[];
 };
 
 export type Coverage = { total: number; held: number; vacant: number; not_verified: number };

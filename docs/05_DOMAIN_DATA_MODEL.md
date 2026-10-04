@@ -561,7 +561,7 @@ One CSV file per entity, UTF-8 (NFC), with the header row exactly as below. The 
 **Behaviour:**
 
 * `--dry-run` validates everything and writes a report without changing data.
-* A real run happens inside a single transaction per database: central rows (geography, persons, parties, national sources) first, then the target tenant (`--tenant={local-level-path}`). It emits `import.completed` audit events. Outbox events and the revalidation job are not emitted yet: the outbox arrives with the central indexes it feeds, and revalidation is `HW-E08-F01-T04`.
+* A real run happens inside a single transaction per database: central rows (geography, persons, parties, national sources) first, then the target tenant (`--tenant={local-level-path}`). It emits `import.completed` audit events and, for every holding it changes, an `office_holding.changed` outbox event in the tenant transaction; a committed tenant import queues `DispatchTenantOutbox`. The revalidation job is not emitted yet (`HW-E08-F01-T04`).
 * Every row is checked before anything is written, and one refused row refuses the whole sheet. Errors name the file, spreadsheet row and column.
 * `admin_units.csv` is never imported together with `--tenant`: a tenant knows only the wards that existed when its reference data was synced, so geography is loaded first and the municipality onboarded before its representatives are.
 * **Refs are global and permanent.** `person_ref`, `party_ref` and `source_ref` become ids through UUIDv5, so the same ref is the same row in every sheet and every run (`D-025`).

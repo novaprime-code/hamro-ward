@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 use App\Modules\Geography\Http\Controllers\LocalLevelController;
-use App\Modules\Geography\Http\Controllers\PublishedPathsController;
 use App\Modules\Geography\Http\Controllers\SearchController;
 use App\Modules\Offices\Http\Controllers\PersonController;
 use App\Modules\Offices\Http\Controllers\WardController;
 use App\Modules\Provenance\Http\Controllers\EvidenceController;
+use App\Modules\Publishing\Http\Controllers\PublishedPathsController;
 use App\Modules\Support\Http\Controllers\HealthController;
 use App\Modules\Tenancy\Http\Middleware\ResolveTenant;
 use Illuminate\Support\Facades\Route;

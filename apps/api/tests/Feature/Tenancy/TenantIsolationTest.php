@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 use App\Modules\Audit\Models\TenantAuditEvent;
-use App\Modules\Geography\Actions\PublishAdminUnit;
-use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Geography\Models\TenantAdminUnit;
 use App\Modules\Imports\Support\ImportContext;
 use App\Modules\Offices\Models\OfficeHolding;
@@ -116,15 +114,7 @@ function isolationFixture(Tenant $tenant, string $label): array
 {
     $path = tenantPath($tenant);
 
-    // Live in every sense a visitor can reach: the factory publishes the
-    // municipality and its wards but not the district, province and country
-    // above them, and the public read path hides anything under an
-    // unpublished ancestor.
-    $localLevel = AdminUnit::query()->findOrFail($tenant->admin_unit_id);
-
-    foreach ($localLevel->ancestors() as $ancestor) {
-        $ancestor->is_published || app(PublishAdminUnit::class)->publish($ancestor);
-    }
+    publishAncestorsOf($tenant);
 
     expect(runImport(sheet(isolationSheet($path, $label)), ['--tenant' => $path]))->toBe(0);
 
@@ -326,9 +316,13 @@ it('runs each queued job in the municipality it was dispatched from', function (
         // first job: what it handles must follow the job, not the worker.
         $tenancy->initialize($otherTenant);
 
-        foreach ([1, 2] as $ignored) {
-            $this->artisan('queue:work', ['--once' => true, '--queue' => 'default'])->assertSuccessful()->run();
-        }
+        // Drain everything: the imports that built the fixture queued their
+        // own outbox jobs, and those must keep to their tenants as well. The
+        // worker shares the test process, whose memory late in a full run is
+        // past the default 128 MB, where a worker stops with exit code 12.
+        $this->artisan('queue:work', ['--stop-when-empty' => true, '--queue' => 'default', '--memory' => 1024])
+            ->assertSuccessful()
+            ->run();
 
         $tenancy->end();
 
