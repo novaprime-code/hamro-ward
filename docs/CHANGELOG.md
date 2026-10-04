@@ -2,6 +2,40 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-06 — Phase K: the admin host
+
+`HW-E13-F02-T01`. One Next.js server now answers two hosts, and the staff one
+is locked down before anything sensitive lives on it.
+
+* **Routing** (`lib/host-routing.ts`, used by the middleware): on
+  `HW_ADMIN_HOST`, every page path is rewritten into the `/staff` tree, so a
+  public page cannot be reached there and staff URLs need no prefix. On the
+  public host, anything under `/staff` is the ordinary 404. Laravel's auth
+  endpoints (`/login`, `/two-factor-challenge`, `/user/*`…) pass through on
+  both hosts. The host is read per request, so the image stays
+  environment-agnostic (`D-015`); with no admin host configured, every host is
+  public.
+* **Headers on every admin-host response**: a Content-Security-Policy with a
+  fresh nonce per request (`script-src 'self' 'nonce-…' 'strict-dynamic'`,
+  `frame-ancestors 'none'`, `base-uri 'none'`, `object-src 'none'`), which
+  Next.js stamps on its own scripts; `X-Robots-Tag: noindex, nofollow`;
+  `Cache-Control: no-store`. `robots.txt` on the admin host is `Disallow: /`.
+* **`/staff`**: its own root layout, rendered per request, with a placeholder
+  page until staff sign-in exists (`HW-E13-F02-T02`).
+* `apps/web/.env.example` now names `HW_SITE_URL` and `HW_ADMIN_HOST`; the
+  `NEXT_PUBLIC_` versions were removed by `D-015` and had lingered here.
+
+Verified against `next start` with the host set at runtime: the staff page on
+the admin host with all three headers and the nonce on all eleven scripts; a
+public ward path on the admin host and `/staff` on the public host both 404;
+the public site unchanged.
+
+### Found, not fixed here
+
+* Public pages are served with `Cache-Control: private, no-store` on `main`
+  too, so the 60-second ISR window never reaches a shared cache. Worth its own
+  change before Cloudflare caching is relied on.
+
 ## 2026-10-06 — Phase J: who on staff may act where
 
 `HW-E13-F01-T01`. Staff accounts and their authority, before any staff login
