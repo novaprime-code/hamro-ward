@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { CoverageLine } from '@/components/civic/coverage-line';
 import { SeatList } from '@/components/civic/seat-list';
+import { ShareButton } from '@/components/civic/share-button';
 import { StateNotice } from '@/components/civic/state-notice';
 import { WardPlate } from '@/components/civic/ward-plate';
 import { isLocale, formatNumber } from '@/i18n/config';
@@ -116,6 +117,14 @@ export default async function WardPage({ params }: { params: Promise<PageParams>
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <ShareButton
+          path={`/${locale}/ward/${place.slug_path}/${data.ward_number}`}
+          title={`${pick(data.name, locale)} · ${pick(place.name, locale)}`}
+          labels={{ share: t('share.button'), copied: t('share.copied'), failed: t('share.copyFailed') }}
+        />
+      </div>
+
       <WardPlate
         locale={locale}
         wardNumber={data.ward_number}

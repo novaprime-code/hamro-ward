@@ -2,6 +2,27 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-04 — Phase H: a share button
+
+`HW-E09-F01-T04` (FR-SHR-04). Ward, person and municipality pages carry a
+Share button at the top, as `09` §5.2 draws it.
+
+* **The phone's share sheet first** (Web Share API), with the page's localized
+  title, because that is where Viber and WhatsApp are. Where there is none, the
+  link is copied and "Link copied" is said in a live region (the backlog's
+  acceptance criterion), so a screen reader hears what a sighted reader sees.
+* **Closing the sheet is a cancel**, not a reason to copy behind the reader's
+  back. Any other refusal — an in-app browser that offers `share()` and then
+  rejects it — falls through to copying.
+* **When neither works**, the link is shown in a selected field to copy by
+  hand, rather than the button silently doing nothing.
+* **The canonical link is shared**, not `location.href`: a query string or
+  fragment the reader arrived with is not passed on.
+
+The decision logic is a plain module (`lib/share.ts`) with a test per branch;
+the three paths — copy, native share then cancel, and neither available in
+Nepali — were also driven in Chromium against a production build.
+
 ## 2026-10-04 — Phase G: pages refresh when the data changes
 
 `HW-E08-F01-T04`. Until now a cached page was refreshed only by its own timer
