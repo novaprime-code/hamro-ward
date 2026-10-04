@@ -8,16 +8,13 @@ import ne from '../../messages/ne.json';
  * Messages for the two components that cannot ask the server for them.
  *
  * `i18n/messages.ts` is `server-only` and reads the locale from the route
- * params. Neither works here: `not-found.tsx` is never given params by Next,
- * and `error.tsx` is a client component by definition — it exists to render
- * after the server render has already failed, so it cannot depend on the
- * server succeeding.
+ * params. Neither works here: the 404 body (`components/not-found-body.tsx`)
+ * is never given params and must not read request headers — that would make
+ * every page under the locale dynamic — and `error.tsx` is a client component
+ * by definition, rendering after the server render has already failed.
  *
- * So these two files, and only these two, import the catalogues directly and
- * pick the locale from the URL. Both catalogues land in the error chunk, which
- * is a few kilobytes and is loaded only when something has gone wrong.
- *
- * Everything else must keep using `getMessages()`.
+ * So these two, and only these two, import the catalogues directly and pick
+ * the locale from the URL. Everything else must keep using `getMessages()`.
  */
 
 const CATALOGUES: Record<Locale, Record<string, string>> = { ne, en };

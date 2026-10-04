@@ -29,6 +29,27 @@ const noto = Noto_Sans_Devanagari({
   display: 'swap',
 });
 
+/**
+ * Lets Next.js cache the pages under `[locale]` (Incremental Static
+ * Regeneration).
+ *
+ * Without any generateStaticParams, Next treats every page beneath a dynamic
+ * segment as dynamic: rendered on every request and sent with
+ * `Cache-Control: private, no-store`. The `revalidate` each page exports never
+ * took effect, and nothing — not this server, not a CDN — kept a copy.
+ *
+ * The list is deliberately EMPTY rather than the two locales. Listing them
+ * would prerender every locale page at build time, and those pages fetch the
+ * API, which does not run during an image build: the image would ship with
+ * "data unavailable" baked into its home page. Empty means each page is
+ * rendered on its first request and cached from then on, refreshed by its
+ * timer or by a signed revalidation (HW-E08-F01-T04). isLocale() in the pages
+ * still turns away anything that is not a locale.
+ */
+export function generateStaticParams(): { locale: string }[] {
+  return [];
+}
+
 export async function generateMetadata({
   params,
 }: {
