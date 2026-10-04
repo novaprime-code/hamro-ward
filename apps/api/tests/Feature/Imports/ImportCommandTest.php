@@ -22,12 +22,10 @@ use App\Modules\Provenance\Models\Source;
 use App\Modules\Provenance\Models\SourceLink;
 use App\Modules\Provenance\Models\TenantSourceLink;
 use App\Modules\Tenancy\Models\Tenant;
-use App\Modules\Tenancy\TenantManager;
 use Database\Seeders\PositionSeeder;
 use Database\Seeders\SourceTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 
 /*
 | hw:import (HW-E06-F02-T01). The acceptance criteria, in the backlog's words:
@@ -47,55 +45,6 @@ beforeEach(function (): void {
     $this->seed(SourceTypeSeeder::class);
     $this->seed(PositionSeeder::class);
 });
-
-afterEach(function (): void {
-    foreach ($GLOBALS['hw_import_sheets'] ?? [] as $directory) {
-        File::deleteDirectory($directory);
-    }
-
-    $GLOBALS['hw_import_sheets'] = [];
-});
-
-/**
- * Writes a sheet to a fresh directory. Rows are given by column name; the
- * header is always the exact one from docs/05 §13, in its order.
- *
- * @param  array<string, list<array<string, string>>>  $files
- */
-function sheet(array $files): string
-{
-    $directory = sys_get_temp_dir().'/hw-import-'.bin2hex(random_bytes(6));
-    File::ensureDirectoryExists($directory);
-    $GLOBALS['hw_import_sheets'][] = $directory;
-
-    foreach ($files as $name => $rows) {
-        $columns = ImportFile::from($name)->columns();
-        $handle = fopen($directory.'/'.$name, 'w');
-        fputcsv($handle, $columns, escape: '');
-
-        foreach ($rows as $row) {
-            fputcsv($handle, array_map(fn (string $column): string => $row[$column] ?? '', $columns), escape: '');
-        }
-
-        fclose($handle);
-    }
-
-    return $directory;
-}
-
-/** @param  array<string, mixed>  $options */
-function runImport(string $directory, array $options = []): int
-{
-    $report = $directory.'/report.md';
-
-    return test()->artisan('hw:import', ['directory' => $directory, '--force' => true, '--report' => $report, ...$options])
-        ->run();
-}
-
-function lastReport(string $directory): string
-{
-    return (string) file_get_contents($directory.'/report.md');
-}
 
 /**
  * A province, district, municipality and two wards, as a geography sheet.
@@ -163,19 +112,6 @@ function municipalitySheet(string $path): array
             ['source_ref' => 'imp-notice', 'subject_ref' => "ward_office:{$path}/1", ...$verifiers],
         ],
     ];
-}
-
-function tenantPath(Tenant $tenant): string
-{
-    return (string) AdminUnitSlug::query()
-        ->where('admin_unit_id', $tenant->admin_unit_id)
-        ->where('is_current', true)
-        ->value('slug_path');
-}
-
-function inTenant(Tenant $tenant, Closure $callback): mixed
-{
-    return app(TenantManager::class)->run($tenant, $callback, allowInactive: true);
 }
 
 // -- geography ------------------------------------------------------------------

@@ -60,7 +60,7 @@ it('copies only this tenant’s branch of the hierarchy', function (): void {
     withTenantDatabase(function (Tenant $tenant): void {
         $names = app(TenantManager::class)->run(
             $tenant,
-            fn (): array => TenantAdminUnit::query()->get()->pluck('name_en')->all(),
+            fn (): array => TenantAdminUnit::query()->pluck('name_en')->all(),
         );
 
         expect($names)->not->toContain('Somewhere Else')

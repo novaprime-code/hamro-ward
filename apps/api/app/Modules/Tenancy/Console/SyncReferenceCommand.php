@@ -83,7 +83,7 @@ final class SyncReferenceCommand extends Command
             $query->where('tenant_key', $key);
         }
 
-        if (!$this->option('include-inactive')) {
+        if (! $this->option('include-inactive')) {
             $query->where('status', TenantStatus::Active->value);
         }
 

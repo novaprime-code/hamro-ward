@@ -26,7 +26,7 @@ final class SeedDemoCommand extends Command
         $this->line('  Four tenant databases will be created or refreshed.');
         $this->newLine();
 
-        if (!$this->option('force') && !$this->confirm('Continue?', true)) {
+        if (! $this->option('force') && ! $this->confirm('Continue?', true)) {
             $this->components->warn('Nothing was seeded.');
 
             return self::SUCCESS;
@@ -43,7 +43,9 @@ final class SeedDemoCommand extends Command
              * DONE, and the step that actually failed looked like the next one.
              * A progress marker that cannot fail is worse than none.
              */
-            $result = $seed->handle(fn (string $line): mixed => $this->line("  <fg=gray>›</> {$line}"));
+            $result = $seed->handle(function (string $line): void {
+                $this->line("  <fg=gray>›</> {$line}");
+            });
         } catch (DemoDataException $exception) {
             $this->newLine();
             $this->components->error($exception->getMessage());

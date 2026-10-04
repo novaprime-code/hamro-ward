@@ -31,9 +31,9 @@ const PERSON_KOSHARA = 'koshi/sunsari/koshara';
 /** Whoever the demonstration dataset seated as Koshara's mayor. */
 function kosharaMayorSlug(): string
 {
-    $seats = test()->getJson('/api/v1/local-levels/'.PERSON_KOSHARA)->json('data.leadership');
+    $seats = testCase()->getJson('/api/v1/local-levels/'.PERSON_KOSHARA)->collect('data.leadership');
 
-    return collect($seats)->firstWhere('position_key', 'mayor')['person']['slug'];
+    return $seats->firstWhere('position_key', 'mayor')['person']['slug'];
 }
 
 it('returns a person with the seats they hold here', function (): void {
@@ -77,7 +77,7 @@ it('does not serve a person who holds nothing in this municipality', function ()
      * holds no seat in it, invites exactly the wrong inference. Himtara's
      * mayor is a real published person — just not one of Koshara's.
      */
-    $himtaraMayor = collect($this->getJson('/api/v1/local-levels/bagmati/kathmandu/himtara')->json('data.leadership'))
+    $himtaraMayor = $this->getJson('/api/v1/local-levels/bagmati/kathmandu/himtara')->collect('data.leadership')
         ->firstWhere('position_key', 'mayor')['person']['slug'];
 
     $this->getJson('/api/v1/persons/'.PERSON_KOSHARA.'/'.$himtaraMayor)->assertNotFound();

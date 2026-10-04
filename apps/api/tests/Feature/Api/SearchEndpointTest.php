@@ -32,7 +32,7 @@ afterEach(function (): void {
  */
 function searchPaths(string $query): array
 {
-    $data = test()->getJson('/api/v1/search?q='.urlencode($query))->assertOk()->json('data');
+    $data = testCase()->getJson('/api/v1/search?q='.urlencode($query))->assertOk()->json('data');
 
     return array_map(
         fn (array $row): string => $row['ward_number'] === null

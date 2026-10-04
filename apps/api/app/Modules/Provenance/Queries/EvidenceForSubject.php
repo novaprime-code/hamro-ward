@@ -108,6 +108,15 @@ final class EvidenceForSubject
      * has already pointed at the municipality named in the URL — so a holding
      * id belonging to one municipality cannot be read through another's
      * address.
+     *
+     * Central subjects are held to the same address. A place must be this
+     * municipality or one of its wards — exactly what its replica holds — and
+     * a person must hold or have held a seat here, the rule the person page
+     * already applies (D-020). Without this, any published ward or person in
+     * the country could be read under any municipality's URL: public data,
+     * but a page whose address says one municipality and whose content is
+     * another's. A party is national and appears in every municipality, so
+     * its evidence is the same under any of them.
      */
     private function assertPubliclyVisible(string $subjectType, string $subjectId): void
     {
@@ -121,8 +130,10 @@ final class EvidenceForSubject
             'ward_office' => $this->constituencyIsPublished(
                 WardOffice::query()->whereKey($subjectId)->value('ward_id'),
             ),
-            'admin_unit' => AdminUnit::query()->publiclyVisible()->whereKey($subjectId)->exists(),
-            'person' => Person::query()->publiclyVisible()->whereKey($subjectId)->exists(),
+            'admin_unit' => AdminUnit::query()->publiclyVisible()->whereKey($subjectId)->exists()
+                && $this->constituencyIsPublished($subjectId),
+            'person' => Person::query()->publiclyVisible()->whereKey($subjectId)->exists()
+                && OfficeHolding::query()->where('person_id', $subjectId)->exists(),
             'party' => Party::query()->publiclyVisible()->whereKey($subjectId)->exists(),
             default => false,
         };
@@ -246,11 +257,11 @@ final class EvidenceForSubject
                  * LAST rather than first, so a source type missing from a
                  * tenant's replica cannot quietly outrank the ECN.
                  */
-                'rank' => (int) ($type?->authority_rank ?? 99),
-                'label_ne' => (string) ($type?->label_ne ?? $source->source_type_key),
-                'label_en' => (string) ($type?->label_en ?? $source->source_type_key),
+                'rank' => (int) ($type->authority_rank ?? 99),
+                'label_ne' => (string) ($type->label_ne ?? $source->source_type_key),
+                'label_en' => (string) ($type->label_en ?? $source->source_type_key),
                 'published_at' => $source->published_at?->toDateString(),
-                'retrieved_at' => $source->retrieved_at?->toIso8601String(),
+                'retrieved_at' => $source->retrieved_at->toIso8601String(),
             ];
         }
 

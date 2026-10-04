@@ -75,12 +75,21 @@ final class Party extends Model
             : ($this->abbreviation_ne ?? $this->abbreviation_en);
     }
 
-    /** Parties that still exist. A dissolved party stays for historical holdings. */
+    /**
+     * Parties that still exist. A dissolved party stays for historical holdings.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
     public function scopeCurrent(Builder $query): Builder
     {
         return $query->whereNull('valid_to');
     }
 
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
     public function scopePubliclyVisible(Builder $query): Builder
     {
         return $query->where('is_published', true);

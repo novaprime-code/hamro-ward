@@ -99,7 +99,7 @@ it('keeps both sides of a disagreement and orders them by authority', function (
 
     expect($response->json('data.has_conflict'))->toBeTrue();
 
-    $party = collect($response->json('data.fields'))->firstWhere('field_path', 'party_id');
+    $party = $response->collect('data.fields')->firstWhere('field_path', 'party_id');
 
     expect($party)->not->toBeNull()
         ->and($party['in_conflict'])->toBeTrue()
@@ -161,18 +161,28 @@ it('refuses a well-formed id that does not exist', function (): void {
 });
 
 it('serves evidence for a person record', function (): void {
-    $person = Person::query()->publiclyVisible()->firstOrFail();
+    $person = wardChairHolding('koshara', 1)->person_id;
 
-    $this->getJson('/api/v1/evidence/'.EVIDENCE_KOSHARA."/person/{$person->id}")
+    $this->getJson('/api/v1/evidence/'.EVIDENCE_KOSHARA."/person/{$person}")
         ->assertOk()
         ->assertJsonPath('data.subject_type', 'person');
+});
+
+it('refuses a person through a municipality they hold no seat in', function (): void {
+    // Public data, but the wrong address: Himtara's URL must not present a
+    // Koshara councillor as though they were Himtara's.
+    $person = wardChairHolding('koshara', 1)->person_id;
+
+    $this->getJson("/api/v1/evidence/bagmati/kathmandu/himtara/person/{$person}")
+        ->assertNotFound();
 });
 
 it('hides an unpublished person behind the same 404 as a missing one', function (): void {
     // "Exists but not published" has to be indistinguishable from "does not
     // exist", or this endpoint enumerates whatever is still being checked.
-    $person = Person::query()->publiclyVisible()->firstOrFail();
-    $person->forceFill(['is_published' => false])->save();
+    // A Koshara seat-holder, so the only reason left for a 404 is publication.
+    $person = Person::query()->findOrFail(wardChairHolding('koshara', 1)->person_id);
+    $person->forceFill(['is_published' => false, 'published_at' => null])->save();
 
     $this->getJson('/api/v1/evidence/'.EVIDENCE_KOSHARA."/person/{$person->id}")
         ->assertNotFound();

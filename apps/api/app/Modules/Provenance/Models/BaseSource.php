@@ -72,7 +72,7 @@ abstract class BaseSource extends Model
     }
 
     /**
-     * @return BelongsTo<covariant BaseSourceType, $this>
+     * @return BelongsTo<covariant BaseSourceType, covariant BaseSource>
      */
     abstract public function sourceType(): BelongsTo;
 

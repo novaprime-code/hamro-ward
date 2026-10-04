@@ -1,0 +1,58 @@
+<?php
+
+/*
+| PHPStan stub for Pest's test functions.
+|
+| Pest declares a test closure's $this as PHPUnit's base TestCase, because it
+| cannot know what tests/Pest.php binds with uses(). Here every Feature and
+| Unit test runs on Tests\TestCase — Laravel's — so seed(), artisan(),
+| getJson() and the rest exist. Without this, PHPStan reports each of those
+| calls as an undefined method, and real errors drown among them.
+|
+| Arch tests run without the application and never touch $this.
+|
+| The empty class declarations are there because PHPStan validates a stub on
+| its own, seeing only classes that some stub declares. A stub contributes
+| PHPDoc and nothing else, so they change nothing about the real classes.
+*/
+
+namespace Tests {
+    abstract class TestCase {}
+}
+
+namespace Pest\PendingCalls {
+    final class BeforeEachCall {}
+    final class AfterEachCall {}
+    final class TestCall {}
+}
+
+namespace Pest\Support {
+    final class HigherOrderTapProxy {}
+}
+
+namespace {
+    use Pest\PendingCalls\AfterEachCall;
+    use Pest\PendingCalls\BeforeEachCall;
+    use Pest\PendingCalls\TestCall;
+    use Pest\Support\HigherOrderTapProxy;
+
+    /**
+     * @param-closure-this \Tests\TestCase  $closure
+     */
+    function beforeEach(?Closure $closure = null): BeforeEachCall {}
+
+    /**
+     * @param-closure-this \Tests\TestCase  $closure
+     */
+    function afterEach(?Closure $closure = null): AfterEachCall {}
+
+    /**
+     * @param-closure-this \Tests\TestCase  $closure
+     */
+    function it(string $description, ?Closure $closure = null): TestCall {}
+
+    /**
+     * @param-closure-this \Tests\TestCase  $closure
+     */
+    function test(?string $description = null, ?Closure $closure = null): HigherOrderTapProxy|TestCall {}
+}

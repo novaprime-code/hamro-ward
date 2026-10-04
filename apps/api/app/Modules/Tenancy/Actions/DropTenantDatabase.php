@@ -22,7 +22,7 @@ final readonly class DropTenantDatabase
 
     public function handle(Tenant $tenant): void
     {
-        if (!app()->environment(['local', 'testing']) && $tenant->status !== TenantStatus::Archived) {
+        if (! app()->environment(['local', 'testing']) && $tenant->status !== TenantStatus::Archived) {
             throw TenancyException::dropNotAllowed($tenant);
         }
 

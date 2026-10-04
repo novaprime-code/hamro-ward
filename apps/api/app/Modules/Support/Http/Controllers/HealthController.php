@@ -24,7 +24,7 @@ final class HealthController
             'central_database' => $this->checkCentralDatabase(),
         ];
 
-        $healthy = !in_array('error', array_column($checks, 'status'), true);
+        $healthy = ! in_array('error', array_column($checks, 'status'), true);
 
         $payload = [
             'status' => $healthy ? 'ok' : 'degraded',

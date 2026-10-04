@@ -102,7 +102,12 @@ final class Person extends Model
         return $this->merged_into_person_id !== null;
     }
 
-    /** Published and not merged away. Merged rows survive so old links keep resolving. */
+    /**
+     * Published and not merged away. Merged rows survive so old links keep resolving.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
     public function scopePubliclyVisible(Builder $query): Builder
     {
         return $query->where('is_published', true)->whereNull('merged_into_person_id');

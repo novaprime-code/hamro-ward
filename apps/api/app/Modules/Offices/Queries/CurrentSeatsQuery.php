@@ -223,7 +223,7 @@ final class CurrentSeatsQuery
             return [];
         }
 
-        return $this->db
+        $subjectIds = $this->db
             ->connection((string) config('tenancy.tenant_connection'))
             ->table('source_links')
             ->whereIn('subject_type', ['office_holding', 'vacancy'])
@@ -232,10 +232,15 @@ final class CurrentSeatsQuery
             ->whereNotNull('asserted_value')
             ->groupBy('subject_id', 'field_path')
             ->havingRaw('count(DISTINCT asserted_value) > 1')
-            ->pluck('subject_id')
-            ->flip()
-            ->map(fn (): bool => true)
-            ->all();
+            ->pluck('subject_id');
+
+        $conflicted = [];
+
+        foreach ($subjectIds as $subjectId) {
+            $conflicted[(string) $subjectId] = true;
+        }
+
+        return $conflicted;
     }
 
     /**

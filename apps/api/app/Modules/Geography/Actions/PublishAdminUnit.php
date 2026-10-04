@@ -18,12 +18,12 @@ final class PublishAdminUnit
 {
     public function publish(AdminUnit $unit): AdminUnit
     {
-        if (!$unit->isCurrent()) {
+        if (! $unit->isCurrent()) {
             throw GeographyException::notCurrent($unit);
         }
 
         $hidden = $unit->ancestors()
-            ->filter(fn (AdminUnit $ancestor): bool => !$ancestor->is_published || !$ancestor->isCurrent())
+            ->filter(fn (AdminUnit $ancestor): bool => ! $ancestor->is_published || ! $ancestor->isCurrent())
             ->map(fn (AdminUnit $ancestor): string => $ancestor->slug)
             ->values()
             ->all();
@@ -32,7 +32,7 @@ final class PublishAdminUnit
             throw GeographyException::unpublishedAncestors($unit, $hidden);
         }
 
-        if (!$unit->is_published) {
+        if (! $unit->is_published) {
             $unit->forceFill([
                 'is_published' => true,
                 'published_at' => now(),

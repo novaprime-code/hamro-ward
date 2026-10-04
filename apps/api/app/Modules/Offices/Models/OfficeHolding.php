@@ -95,6 +95,9 @@ final class OfficeHolding extends Model
     /**
      * Holdings in force on a date. '[)' at both ends: a holding that ends on the
      * day its successor starts is over, which is how a handover is recorded.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
      */
     public function scopeCurrentOn(Builder $query, ?Carbon $on = null): Builder
     {
@@ -106,6 +109,10 @@ final class OfficeHolding extends Model
                 ->orWhereDate('end_date', '>', $on));
     }
 
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
     public function scopeForSeat(
         Builder $query,
         string $positionKey,

@@ -45,7 +45,7 @@ final class PersonSlug
         foreach (range(1, 8) as $ignored) {
             $slug = self::for($latinName);
 
-            if (!Person::query()->where('slug', $slug)->exists()) {
+            if (! Person::query()->where('slug', $slug)->exists()) {
                 return $slug;
             }
         }

@@ -79,7 +79,7 @@ final class CreateTenant
             );
         }
 
-        if (!$localLevel->isCurrent()) {
+        if (! $localLevel->isCurrent()) {
             throw ReferenceDataException::misconfiguredTenant(
                 $localLevel->slug,
                 'the local level was closed on '.(string) $localLevel->valid_to?->toDateString(),

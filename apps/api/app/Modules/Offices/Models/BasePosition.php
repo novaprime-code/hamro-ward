@@ -12,6 +12,7 @@ use App\Modules\Offices\Enums\PositionKey;
 use App\Modules\Offices\Enums\SeatCategory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * Shared behaviour of the positions catalogue.
@@ -25,6 +26,9 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $title_en
  * @property array<int, string> $applies_to_local_level_types
  * @property array<string, int> $seats_per_constituency
+ * @property SeatCategory $seat_category
+ * @property Carbon|null $valid_from
+ * @property Carbon|null $valid_to
  */
 abstract class BasePosition extends Model
 {
@@ -69,24 +73,43 @@ abstract class BasePosition extends Model
         return in_array($localLevelType, $this->applies_to_local_level_types, true);
     }
 
-    /** Positions in force today. A retired position keeps resolving for past holdings. */
+    /**
+     * Positions in force today. A retired position keeps resolving for past holdings.
+     *
+     * @param  Builder<covariant BasePosition>  $query
+     * @return Builder<covariant BasePosition>
+     */
     public function scopeCurrent(Builder $query): Builder
     {
         return $query->whereNull('valid_to');
     }
 
-    /** The seats citizens fill themselves — what a ward page shows (docs/02 §4.5). */
+    /**
+     * The seats citizens fill themselves — what a ward page shows (docs/02 §4.5).
+     *
+     * @param  Builder<covariant BasePosition>  $query
+     * @return Builder<covariant BasePosition>
+     */
     public function scopeDirectlyElected(Builder $query): Builder
     {
         return $query->where('election_method', ElectionMethod::Direct->value);
     }
 
+    /**
+     * @param  Builder<covariant BasePosition>  $query
+     * @return Builder<covariant BasePosition>
+     */
     public function scopeForLocalLevelType(Builder $query, string $localLevelType): Builder
     {
         return $query->whereRaw('? = ANY (applies_to_local_level_types)', [$localLevelType]);
     }
 
-    /** Ballot order first, then key, so two positions sharing an order stay stable. */
+    /**
+     * Ballot order first, then key, so two positions sharing an order stay stable.
+     *
+     * @param  Builder<covariant BasePosition>  $query
+     * @return Builder<covariant BasePosition>
+     */
     public function scopeInBallotOrder(Builder $query): Builder
     {
         return $query->orderByRaw('ballot_order NULLS LAST')->orderBy('key');

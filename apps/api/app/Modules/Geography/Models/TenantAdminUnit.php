@@ -118,11 +118,19 @@ final class TenantAdminUnit extends Model
         return self::query()->where('level', AdminLevel::LocalLevel->value)->first();
     }
 
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
     public function scopeCurrent(Builder $query): Builder
     {
         return $query->whereNull('valid_to');
     }
 
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
     public function scopeWards(Builder $query): Builder
     {
         return $query->where('level', AdminLevel::Ward->value)->orderBy('ward_number');
@@ -132,6 +140,9 @@ final class TenantAdminUnit extends Model
      * Published and current. The central publication rule already checked that
      * every ancestor is published before a row could be published there, so the
      * replica does not re-derive it.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
      */
     public function scopePubliclyVisible(Builder $query): Builder
     {

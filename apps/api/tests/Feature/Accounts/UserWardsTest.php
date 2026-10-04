@@ -306,10 +306,11 @@ it('will not let an unverified or locked account report', function (): void {
 it('keeps the password and two-factor secret out of serialised output', function (): void {
     $user = User::factory()->create();
 
-    expect(array_keys($user->toArray()))
-        ->not->toContain('password')
-        ->not->toContain('two_factor_secret')
-        ->not->toContain('remember_token');
+    $keys = array_keys($user->toArray());
+
+    foreach (['password', 'two_factor_secret', 'remember_token'] as $secret) {
+        expect($keys)->not->toContain($secret);
+    }
 });
 
 it('measures the reporting cooldown from when the ward was saved', function (): void {
