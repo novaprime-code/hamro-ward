@@ -77,7 +77,7 @@ export function MunicipalityPicker({
       {matches.length === 0 ? (
         <p className="mt-6 text-muted-foreground">{labels.empty}</p>
       ) : (
-        <ul className="mt-4 space-y-3">
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
           {matches.map((level) => {
             const name = pick(level.name, locale);
             const typeLabel = level.type === null ? '' : (labels.typeLabels[level.type] ?? '');
@@ -101,9 +101,11 @@ export function MunicipalityPicker({
 
             return (
               <li key={level.slug_path}>
-                <Card asChild className="transition-colors hover:bg-accent focus-visible:bg-accent">
+                <Card asChild className="transition-colors hover:border-primary/40 hover:bg-muted focus-visible:bg-muted">
                   <Link href={`/${locale}/palika/${level.slug_path}`}>
-                    <CardContent className="flex items-center gap-3">
+                    {/* p-4, not CardContent's default pt-0: that default assumes a
+                        CardHeader above it, and this row has none. */}
+                    <CardContent className="flex items-center gap-3 p-4">
                       <span className="min-w-0 flex-1">
                         <span className="block font-display text-[19px] font-semibold leading-snug">
                           {name}

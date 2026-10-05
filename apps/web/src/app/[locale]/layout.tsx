@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Anek_Devanagari, Noto_Sans_Devanagari } from 'next/font/google';
 import { notFound } from 'next/navigation';
 
 import { BetaBanner } from '@/components/layout/beta-banner';
@@ -7,27 +6,13 @@ import { SiteFooter } from '@/components/layout/site-footer';
 import { SiteHeader } from '@/components/layout/site-header';
 import { isLocale } from '@/i18n/config';
 import { getMessages, translator } from '@/i18n/messages';
+import { fontVariables } from '@/lib/fonts';
 import { operator } from '@/lib/operator';
 import { siteUrl } from '@/lib/site';
 import { resolveTheme } from '@/lib/theme';
 
 import './globals.css';
 
-/* Self-hosted through next/font: no request to Google at runtime, and the
-   Devanagari subset only. Anek has a width axis, used by the ward plate. */
-const anek = Anek_Devanagari({
-  subsets: ['devanagari', 'latin'],
-  weight: ['600', '700', '800'],
-  variable: '--font-anek',
-  display: 'swap',
-});
-
-const noto = Noto_Sans_Devanagari({
-  subsets: ['devanagari', 'latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-noto',
-  display: 'swap',
-});
 
 /**
  * Lets Next.js cache the pages under `[locale]` (Incremental Static
@@ -123,8 +108,8 @@ export default async function LocaleLayout({
   const theme = resolveTheme();
 
   return (
-    <html lang={locale} data-theme={theme} className={`${anek.variable} ${noto.variable}`}>
-      <body className="min-h-dvh bg-background text-foreground">
+    <html lang={locale} data-theme={theme} className={fontVariables}>
+      <body className="flex min-h-dvh flex-col bg-background text-foreground">
         <BetaBanner message={t('beta.banner')} />
         <SiteHeader
           locale={locale}
@@ -132,7 +117,7 @@ export default async function LocaleLayout({
           switchLabel={t('locale.switch')}
           searchLabel={t('search.link')}
         />
-        <main className="mx-auto w-full max-w-[var(--content-width)] px-4 pb-16">{children}</main>
+        <main className="mx-auto w-full max-w-[var(--content-width)] flex-1 px-4 pb-16">{children}</main>
         <SiteFooter
           links={[
             { href: `/${locale}/about`, label: t('footer.about') },
