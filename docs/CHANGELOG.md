@@ -2,6 +2,74 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-14 — Phase P: citizens can create an account
+
+### Sign-up, and the question it refuses to answer (`HW-E30-F01-T02`)
+
+Registration was deliberately off until it could be done without leaking who
+has an account (`config/fortify.php` said so). It is on now, as
+`RegisterController` rather than Fortify's own route, because Fortify's
+answers that question twice over: a 422 saying the address is taken, and a
+session cookie on the way back when it is not.
+
+So sign-up now returns the same 201 and the same words whatever the address
+is. What differs is which mail goes out: a verification link to a new address,
+and to one that already has an account, a note saying someone tried — which
+only the person reading that mailbox ever sees. Nobody is signed in by
+registering, because a cookie on the response would give the game away as
+plainly as a 422 would.
+
+`POST /forgot-password` now answers the same way for the same reason. It used
+to say "We can't find a user with that email address."
+
+### Email verification without a session
+
+Laravel's verify route demands a signed-in session. That does not fit a
+sign-up that signs nobody in, and it does not fit how people read mail: the
+form is filled on a laptop and the link is opened on a phone. Verification is
+ours now, and it works from the link alone, which proves what verification is
+actually asking about — that the person holds the mailbox.
+
+The link is signed **relatively**, over its path and not its host. The browser
+asks the web tier, which proxies the request on to the API under a container
+name, so a signature covering the host is made for one URL and checked against
+another. That was found by trying it rather than by reading it.
+
+### Mailed links arrive somewhere that exists
+
+Both mails now point at the web tier (`FRONTEND_URL`, which until now no PHP
+read) and are written in the language the account chose. The reset mail in
+particular was broken, not merely misaddressed: it built its link from
+`route('password.reset')`, a route this application does not register, so
+`POST /forgot-password` threw instead of sending.
+
+### Turnstile (`config/turnstile.php`)
+
+In front of sign-up only, and off when no secret is configured, so a
+developer's machine and CI still exercise the form. An unreachable Cloudflare
+lets the sign-up through with a warning: an outage there should not close
+registration for the country, and there are rate limits and email verification
+behind it either way.
+
+### The screens (`HW-E30-F01-T03`)
+
+`/{locale}/account/{register,sign-in,verify,forgot-password,reset-password}`,
+in both languages, never cached and never indexed. Sign-up asks for a name, an
+address, a password with a show/hide toggle, and a language. The copy follows
+the API's discipline: "if that address has an account, a link is on its way",
+never "sent".
+
+The same-origin plumbing that the staff dashboard already had — the XSRF
+cookie, the JSON call, Laravel's error shapes — moved to `lib/fortify.ts` and
+is now shared rather than written twice.
+
+### Also
+
+* A latent flake fixed: a staff audit assertion compared three events that
+  share a timestamp without ordering them, so Postgres was free to fail the
+  run at random.
+
+
 ## 2026-10-07 — Phase O: staff sign-in screens, and the landing page's cards
 
 ### Staff sign-in screens (`HW-E13-F02-T02`)

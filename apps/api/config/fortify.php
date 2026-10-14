@@ -21,8 +21,14 @@ use Laravel\Fortify\Features;
 | JSON only (views off): the web tier renders every screen and talks to
 | these endpoints same-origin, through its rewrites.
 |
-| Registration is off until citizen sign-up exists with Turnstile and an
-| enumeration-safe response (HW-E30-F01-T02).
+| Two flows are NOT Fortify's, and are routed in routes/web.php instead:
+|
+|   registration        Fortify creates the account and signs the person in,
+|                       and both of those answer "is this address known?" to
+|                       anyone who asks. See RegisterController.
+|   email verification  Fortify's verify route needs a signed-in session, and
+|                       sign-up deliberately leaves nobody signed in. See
+|                       VerifyEmailController.
 */
 
 return [
@@ -50,7 +56,6 @@ return [
 
     'features' => [
         Features::resetPasswords(),
-        Features::emailVerification(),
         Features::updateProfileInformation(),
         Features::updatePasswords(),
         Features::twoFactorAuthentication([

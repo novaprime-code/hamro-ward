@@ -119,7 +119,10 @@ it('changes a role by revoking and granting, keeping the history, and audits bot
         ->and($rows[0]->revoked_by)->toBe($admin->id)
         ->and($rows[1]->role)->toBe(TenantRole::Moderator)
         ->and($staff->roleIn($koshara))->toBe(TenantRole::Moderator)
-        ->and(AuditEvent::query()->where('actor_id', $admin->id)->pluck('action')->all())
+        // Ordered by the identity column, which is insertion order: all three
+        // events land in the same second, so without this the database may
+        // hand them back in any order and the run fails at random.
+        ->and(AuditEvent::query()->where('actor_id', $admin->id)->orderBy('id')->pluck('action')->all())
         ->toBe(['staff_membership.granted', 'staff_membership.revoked', 'staff_membership.granted']);
 
     app(RevokeTenantRole::class)->handle($admin, $rows[1]);
