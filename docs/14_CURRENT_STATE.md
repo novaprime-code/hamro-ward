@@ -1,6 +1,6 @@
 # Current state
 
-**As of:** 2026-10-14
+**As of:** 2026-10-15
 **Purpose:** what actually exists and runs today, so work can resume without
 rereading the history. Updated whenever the answer to "what is deployed?"
 changes.
@@ -154,6 +154,15 @@ proxy. Both mails go to `FRONTEND_URL` in the account's language; the reset
 mail previously threw rather than sending. Turnstile guards sign-up and is off
 wherever no secret is configured.
 
+**Saved wards and the account corner** (`HW-E30-F02-T01`, `T02`,
+`HW-E30-F01-T04`, Phase Q) — `/api/v1/me/wards` (list, add, remove, set the
+main ward), addressing a ward by slug path and number rather than by its id;
+`/api/v1/me` also answers `can_report` and `saved_wards`. The header's account
+corner renders a placeholder on the server and asks `/api/v1/me` after
+hydration, so public pages stay one cached document for everyone, and the
+account screens finally have something linking to them. `My wards` at
+`/{locale}/account/wards`.
+
 ---
 
 ## 4. The demonstration data
@@ -186,10 +195,9 @@ Demo path: `/ne` → `/ne/palika/koshi/sunsari/koshara` → wards 1 to 4 in orde
 
 ## 5. What is not built
 
-Issue reporting beyond its schema, moderation (`HW-E11`, `HW-E14`), the
-account area beyond sign-up — My wards, My reports, Settings and the header's
-account menu (`HW-E30-F01-T04`, `F02`, `F03`) — the staff dashboard
-(`HW-E13-F03`), media upload,
+Issue reporting beyond its schema, moderation (`HW-E11`, `HW-E14`), the rest
+of the account area — My reports and Settings (`HW-E30-F03`, `HW-E30-F01`
+settings) — the staff dashboard (`HW-E13-F03`), media upload,
 promises, the election module, the AI assistant, Cloudflare cache purge
 alongside revalidation, and a command to publish a place. Also: no
 real geography import has been run — the importer exists, the data does not.

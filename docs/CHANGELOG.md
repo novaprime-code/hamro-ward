@@ -2,6 +2,55 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-10-15 — Phase Q: saved wards, and a way into the account
+
+### The wards a citizen saves (`HW-E30-F02-T01`)
+
+`GET/POST /api/v1/me/wards`, `DELETE` one, and `PUT .../primary`. The rules
+were already written — `SaveUserWard`, `RemoveUserWard` and the database
+constraints behind them — so this is the HTTP edge and little else: it turns a
+request into an action call, and an action's refusal into something a screen
+can show, keeping the action's own words rather than restating a cap in two
+places.
+
+A ward is named by **slug path and number** (`koshi/sunsari/koshara` and `4`),
+never by its uuid. The id means nothing to anyone and would have to be looked
+up first; the path is what the picker already holds and what the URL already
+says.
+
+`/api/v1/me` now also answers `can_report` and `saved_wards`. The first is a
+rule that will gain clauses — a kill switch, a reporting scope — and every one
+of them would otherwise have to be re-implemented in the header.
+
+### A way into the account (`HW-E30-F01-T04`)
+
+Phase P shipped five account screens with nothing linking to them. The header
+now carries the account corner: a placeholder rendered on the server, then one
+call to `/api/v1/me` once the page is interactive. That is what keeps every
+public page a single cached document served identically to everyone
+(`12` §11.4) — verified: `/ne` still answers `s-maxage=300`, and its HTML
+contains no account's name.
+
+An unconfirmed address shows as a dot beside the name, labelled for anyone not
+seeing colour, with the way to fix it inside the menu.
+
+### My wards (`HW-E30-F02-T02`)
+
+Municipality, ward number, and what the ward is to you. The last is the part a
+citizen is least likely to expect, so each option says whether it can be a main
+ward rather than leaving four bare words to be guessed at. A workplace is
+somewhere you have standing to report on; it is not where you are from.
+
+The screen states what is kept — the ward and nothing finer, never a street or
+a house — because a form asking where someone lives owes them that.
+
+### Also
+
+* The header keeps to one line on a phone: the site name was wrapping once a
+  fourth control joined the row, so the account button is an icon below `sm`
+  and the name appears from there up.
+
+
 ## 2026-10-14 — Phase P: citizens can create an account
 
 ### Sign-up, and the question it refuses to answer (`HW-E30-F01-T02`)

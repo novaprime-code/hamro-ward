@@ -6,7 +6,9 @@ namespace App\Modules\Accounts\Models;
 
 use App\Modules\Accounts\Enums\WardRelationship;
 use App\Modules\Geography\Models\AdminUnit;
+use App\Modules\Tenancy\Enums\TenantStatus;
 use App\Modules\Tenancy\Models\Concerns\UsesCentralConnection;
+use App\Modules\Tenancy\Models\Tenant;
 use Database\Factories\UserWardFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -100,6 +102,29 @@ final class UserWard extends Model
     public function usableFrom(int $cooldownHours): Carbon
     {
         return $this->created_at->copy()->addHours(max(0, $cooldownHours));
+    }
+
+    /**
+     * Whether Hamro Ward is live in this ward's municipality yet (docs/12
+     * §12.2).
+     *
+     * A ward can be saved before its municipality is onboarded — refusing
+     * would tell a citizen their ward does not exist when what is true is
+     * that we have not reached it — so the account screens have to be able to
+     * say "Not open yet" about a row that is otherwise perfectly valid.
+     */
+    public function isInOpenMunicipality(): bool
+    {
+        $localLevelId = $this->ward?->parent_id;
+
+        if ($localLevelId === null) {
+            return false;
+        }
+
+        return Tenant::query()
+            ->where('admin_unit_id', $localLevelId)
+            ->where('status', TenantStatus::Active->value)
+            ->exists();
     }
 
     /** See User::newFactory() — the namespace-derived default does not exist. */

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Accounts\Http\Controllers\MeController;
+use App\Modules\Accounts\Http\Controllers\UserWardsController;
 use App\Modules\Geography\Http\Controllers\LocalLevelController;
 use App\Modules\Geography\Http\Controllers\SearchController;
 use App\Modules\Offices\Http\Controllers\PersonController;
@@ -107,6 +108,25 @@ Route::middleware('throttle:public-read')->group(function (): void {
  */
 Route::middleware(['auth:sanctum', 'auth.host'])->group(function (): void {
     Route::get('/me', MeController::class)->name('api.v1.me');
+
+    /*
+     * Saved wards (HW-E30-F02-T01, docs/12 §12). A ward is addressed by its
+     * slug path and number, which is what the picker and the URL already
+     * carry; the saved row itself is addressed by its own id, because an
+     * account can save one ward twice under two relationships.
+     *
+     * Not gated on a verified address: saving where you live is how an
+     * account becomes useful, and it grants nothing on its own. Reporting is
+     * the thing verification gates (User::canReport).
+     */
+    Route::get('/me/wards', [UserWardsController::class, 'index'])->name('api.v1.me.wards.index');
+    Route::post('/me/wards', [UserWardsController::class, 'store'])->name('api.v1.me.wards.store');
+    Route::delete('/me/wards/{saved_ward}', [UserWardsController::class, 'destroy'])
+        ->whereUuid('saved_ward')
+        ->name('api.v1.me.wards.destroy');
+    Route::put('/me/wards/{saved_ward}/primary', [UserWardsController::class, 'makePrimary'])
+        ->whereUuid('saved_ward')
+        ->name('api.v1.me.wards.primary');
 });
 
 // Admin host only: EnsureAdminHost (global) answers 404 anywhere else.

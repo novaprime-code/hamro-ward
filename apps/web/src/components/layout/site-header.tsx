@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react';
 import Link from 'next/link';
 
+import { AccountArea } from '@/components/layout/account-area';
 import { buttonVariants } from '@/components/ui/button';
 import type { Locale } from '@/i18n/config';
 
@@ -9,18 +10,26 @@ export function SiteHeader({
   siteName,
   switchLabel,
   searchLabel,
+  accountLabels,
 }: {
   locale: Locale;
   siteName: string;
   switchLabel: string;
   searchLabel: string;
+  accountLabels: {
+    signIn: string;
+    account: string;
+    myWards: string;
+    signOut: string;
+    verifyPending: string;
+  };
 }) {
   const other: Locale = locale === 'ne' ? 'en' : 'ne';
 
   return (
     <header className="border-b border-border bg-card">
       <div className="mx-auto flex w-full max-w-[var(--content-width)] items-center justify-between gap-3 px-4 py-2">
-        <Link href={`/${locale}`} className="font-display text-xl font-bold">
+        <Link href={`/${locale}`} className="whitespace-nowrap font-display text-xl font-bold">
           {siteName}
         </Link>
 
@@ -50,6 +59,10 @@ export function SiteHeader({
           >
             {switchLabel}
           </Link>
+
+          {/* Client-side, after hydration: the HTML above is cached and
+              identical for everyone, and must stay that way (12 §11.4). */}
+          <AccountArea locale={locale} labels={accountLabels} />
         </div>
       </div>
     </header>
