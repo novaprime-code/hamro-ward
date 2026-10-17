@@ -115,6 +115,13 @@ export default async function LocaleLayout({
           locale={locale}
           siteName={t('site.name')}
           switchLabel={t('locale.switch')}
+          accountLabels={{
+            signIn: t('account.signIn.title'),
+            account: t('account.menu.title'),
+            myWards: t('account.wards.title'),
+            signOut: t('account.signIn.signOut'),
+            verifyPending: t('account.verify.pending'),
+          }}
           searchLabel={t('search.link')}
         />
         <main className="mx-auto w-full max-w-[var(--content-width)] flex-1 px-4 pb-16">{children}</main>

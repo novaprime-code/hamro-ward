@@ -1,6 +1,6 @@
 # Current state
 
-**As of:** 2026-10-04
+**As of:** 2026-10-15
 **Purpose:** what actually exists and runs today, so work can resume without
 rereading the history. Updated whenever the answer to "what is deployed?"
 changes.
@@ -139,7 +139,29 @@ on the public host.
 Sanctum cookie sessions, one set of routes for both hosts (`D-034`). Staff:
 mandatory TOTP (enrolment forced), recovery codes, lockout, 30-minute idle and
 12-hour absolute limits. Citizens: sign-in, password reset, profile. Staff
-screens on the admin host (Phase O); citizen screens are `HW-E30-F01-T03`.
+screens on the admin host (Phase O).
+
+**Citizen accounts** (`HW-E30-F01-T02`, `T03`, Phase P) — sign-up, email
+verification, and the five screens that go with them
+(`/{locale}/account/{register,sign-in,verify,forgot-password,reset-password}`,
+both languages, never cached or indexed). Sign-up is this application's own
+route rather than Fortify's: it answers a taken address exactly as it answers
+a free one, tells the mailbox's owner instead, and signs nobody in — a session
+cookie would answer the question a 422 was being avoided for. `POST
+/forgot-password` now does the same. Verification works from the mailed link
+without a session, signed relatively so the signature survives the web tier's
+proxy. Both mails go to `FRONTEND_URL` in the account's language; the reset
+mail previously threw rather than sending. Turnstile guards sign-up and is off
+wherever no secret is configured.
+
+**Saved wards and the account corner** (`HW-E30-F02-T01`, `T02`,
+`HW-E30-F01-T04`, Phase Q) — `/api/v1/me/wards` (list, add, remove, set the
+main ward), addressing a ward by slug path and number rather than by its id;
+`/api/v1/me` also answers `can_report` and `saved_wards`. The header's account
+corner renders a placeholder on the server and asks `/api/v1/me` after
+hydration, so public pages stay one cached document for everyone, and the
+account screens finally have something linking to them. `My wards` at
+`/{locale}/account/wards`.
 
 ---
 
@@ -173,8 +195,9 @@ Demo path: `/ne` → `/ne/palika/koshi/sunsari/koshara` → wards 1 to 4 in orde
 
 ## 5. What is not built
 
-Issue reporting beyond its schema, moderation (`HW-E11`, `HW-E14`), citizen sign-in
-(`HW-E30-F01`), the staff dashboard and staff accounts (`HW-E13`), media upload,
+Issue reporting beyond its schema, moderation (`HW-E11`, `HW-E14`), the rest
+of the account area — My reports and Settings (`HW-E30-F03`, `HW-E30-F01`
+settings) — the staff dashboard (`HW-E13-F03`), media upload,
 promises, the election module, the AI assistant, Cloudflare cache purge
 alongside revalidation, and a command to publish a place. Also: no
 real geography import has been run — the importer exists, the data does not.
@@ -188,8 +211,8 @@ real geography import has been run — the importer exists, the data does not.
 | **D-006** | the pilot local level is still unchosen. Nothing in code depends on it, and nothing should start to |
 | **B7** | every Nepali string in the UI is a draft pending review by a native speaker |
 | **Storage** | R2 vs MinIO for staging is undecided. `FILESYSTEM_DISK=local` until the media module exists, so it blocks nothing yet |
-| **Turnstile** | keys are empty; needed before citizen reporting opens |
-| **Mail** | Mailpit on staging; no transactional provider chosen for production |
+| **Turnstile** | wired into sign-up (`config/turnstile.php`), but the keys are still empty, so the check is off wherever that stays true |
+| **Mail** | Mailpit on staging; no transactional provider chosen for production. Sign-up now depends on mail actually arriving, so this is on the path to a pilot rather than beside it |
 | **Licence** | undecided |
 | **G1–G6** | operator conditions from `D-003` remain open |
 

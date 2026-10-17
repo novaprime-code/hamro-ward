@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Accounts\Models;
 
 use App\Modules\Accounts\Enums\UserStatus;
+use App\Modules\Accounts\Notifications\ResetPasswordLink;
+use App\Modules\Accounts\Notifications\VerifyEmailAddress;
 use App\Modules\Tenancy\Models\Concerns\UsesCentralConnection;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
@@ -116,6 +118,21 @@ final class User extends Authenticatable implements MustVerifyEmailContract
     public function canReport(): bool
     {
         return $this->status->canSignIn() && $this->hasVerifiedEmail();
+    }
+
+    /**
+     * Both mailed links are ours rather than Laravel's, because both have to
+     * arrive at the web tier and in the account's own language
+     * (Notifications\VerifyEmailAddress, Notifications\ResetPasswordLink).
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new VerifyEmailAddress);
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordLink($token));
     }
 
     /** @param  Builder<User>  $query */

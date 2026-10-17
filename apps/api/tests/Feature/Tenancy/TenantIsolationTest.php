@@ -60,6 +60,16 @@ const CENTRAL_ROUTES = [
     'api.v1.health',
     'api.v1.local-levels.index',
     'api.v1.me',
+    /*
+     * Saved wards are central: a citizen's wards span municipalities by
+     * design, which is the reason the account lives in the central database
+     * at all (docs/12 §13). These never open a tenant — `open` is answered
+     * from the central tenants registry, not from inside one.
+     */
+    'api.v1.me.wards.destroy',
+    'api.v1.me.wards.index',
+    'api.v1.me.wards.primary',
+    'api.v1.me.wards.store',
     'api.v1.published-paths',
     'api.v1.search',
     'api.v1.staff.me',

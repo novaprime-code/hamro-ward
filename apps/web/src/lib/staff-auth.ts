@@ -1,15 +1,17 @@
 /**
  * The staff dashboard's side of sign-in (HW-E13-F02-T02; docs/12 §11, D-034).
  *
- * Every call is same-origin — /sanctum, /login, /two-factor-challenge and
- * /user/* are rewritten to Laravel by next.config.ts — so the session cookie
- * (hw_staff_session, host-only) and the XSRF-TOKEN cookie flow without any
- * CORS. Laravel's CSRF check wants the XSRF-TOKEN cookie's value echoed in the
- * X-XSRF-TOKEN header on every write, which is what `staffRequest` does.
- *
- * The parsing and wording live in pure functions so they can be tested
- * without a browser.
+ * The same-origin plumbing — the XSRF cookie, the JSON call, Laravel's error
+ * shapes — is shared with the citizen screens in lib/fortify.ts. What is left
+ * here is what only staff have: the two-step challenge, and a lockout that
+ * says when the next attempt is possible.
  */
+
+import { firstError, minutesUntil } from '@/lib/fortify';
+
+export { ensureCsrfCookie, firstError, minutesUntil, readXsrfToken } from '@/lib/fortify';
+export { fortifyRequest as staffRequest } from '@/lib/fortify';
+export type { FortifyResponse as StaffResponse } from '@/lib/fortify';
 
 export type StaffMe = {
   id: string;
@@ -18,30 +20,6 @@ export type StaffMe = {
   operator_admin: boolean;
   memberships: { tenant_key: string; role: string }[];
 };
-
-/** The decoded XSRF-TOKEN cookie, or null. Laravel URL-encodes the value. */
-export function readXsrfToken(cookieHeader: string): string | null {
-  for (const part of cookieHeader.split(';')) {
-    const [name, ...rest] = part.trim().split('=');
-
-    if (name === 'XSRF-TOKEN') {
-      try {
-        return decodeURIComponent(rest.join('='));
-      } catch {
-        return null;
-      }
-    }
-  }
-
-  return null;
-}
-
-/** Whole minutes until a lock ends, at least one while it lasts; 0 once over. */
-export function minutesUntil(lockedUntil: string, now: Date = new Date()): number {
-  const remaining = new Date(lockedUntil).getTime() - now.getTime();
-
-  return Number.isNaN(remaining) || remaining <= 0 ? 0 : Math.ceil(remaining / 60_000);
-}
 
 /** "Try again in 14 minutes, at 10:42." — the retry time the spec asks for. */
 export function lockoutMessage(lockedUntil: string, now: Date = new Date()): string {
@@ -80,61 +58,4 @@ export function interpretSignIn(status: number, body: unknown, retryAfter: strin
   }
 
   return { kind: 'rejected', message: firstError(data) ?? 'Those details do not match an active staff account.' };
-}
-
-/** The first validation message in a Laravel 422 body, if there is one. */
-export function firstError(body: unknown): string | null {
-  const errors = (body as { errors?: Record<string, unknown> } | null)?.errors;
-
-  if (errors && typeof errors === 'object') {
-    for (const messages of Object.values(errors)) {
-      if (Array.isArray(messages) && typeof messages[0] === 'string') {
-        return messages[0];
-      }
-    }
-  }
-
-  const message = (body as { message?: unknown } | null)?.message;
-
-  return typeof message === 'string' ? message : null;
-}
-
-export type StaffResponse = { status: number; body: unknown; retryAfter: string | null };
-
-/** One same-origin JSON call, with the CSRF token on every write. */
-export async function staffRequest(method: 'GET' | 'POST' | 'DELETE', path: string, body?: object): Promise<StaffResponse> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
-
-  if (method !== 'GET') {
-    headers['Content-Type'] = 'application/json';
-    const token = readXsrfToken(document.cookie);
-
-    if (token !== null) {
-      headers['X-XSRF-TOKEN'] = token;
-    }
-  }
-
-  const response = await fetch(path, {
-    method,
-    headers,
-    credentials: 'same-origin',
-    cache: 'no-store',
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-
-  const text = await response.text();
-  let parsed: unknown = null;
-
-  try {
-    parsed = text === '' ? null : JSON.parse(text);
-  } catch {
-    parsed = null;
-  }
-
-  return { status: response.status, body: parsed, retryAfter: response.headers.get('Retry-After') };
-}
-
-/** Sanctum's CSRF cookie; needed once before the first write in a session. */
-export async function ensureCsrfCookie(): Promise<void> {
-  await fetch('/sanctum/csrf-cookie', { credentials: 'same-origin', cache: 'no-store' });
 }

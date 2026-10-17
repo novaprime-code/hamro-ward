@@ -24,10 +24,22 @@ final class MeController
         // has no citizen profile, and this route is not its business.
         abort_unless($user instanceof User, 404);
 
+        /*
+         * `can_report` rather than leaving the screens to work it out from
+         * the flags: the rule is "active and verified" today and gains
+         * clauses later (a kill switch, a reporting scope), and every one of
+         * those would otherwise have to be re-implemented in the header.
+         *
+         * `saved_wards` is the count, not the list. The header needs to know
+         * whether to say "My wards" or "Add your ward"; the list itself is a
+         * request the My wards screen makes when someone opens it.
+         */
         return response()->json(['data' => [
             'display_name' => $user->display_name,
             'preferred_locale' => $user->preferred_locale,
             'email_verified' => $user->hasVerifiedEmail(),
+            'can_report' => $user->canReport(),
+            'saved_wards' => $user->wards()->count(),
         ]])->header('Cache-Control', 'private, no-store');
     }
 }
