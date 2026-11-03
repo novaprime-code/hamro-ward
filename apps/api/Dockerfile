@@ -14,7 +14,11 @@ FROM serversideup/php:${PHP_VERSION}-fpm-nginx
 USER root
 # pgsql/pdo_pgsql: PostgreSQL. intl: Nepali text normalisation (Normalizer).
 # bcmath: money and counters. redis: cache, queue and sessions. pcntl: queue worker signals.
-RUN install-php-extensions bcmath intl pgsql pdo_pgsql redis pcntl
+# gd: decoding and re-encoding uploaded photographs, which is what strips the
+# camera's metadata out of them (HW-E12-F01-T02). Built with WebP, the format
+# the variants are written in. Without it every upload is refused rather than
+# stored unprocessed — see Media\Support\ImageFile::decodable.
+RUN install-php-extensions bcmath intl pgsql pdo_pgsql redis pcntl gd
 
 # Runs after the base image's own startup steps: central migrations as the schema
 # owner, then one pass over every municipality database.

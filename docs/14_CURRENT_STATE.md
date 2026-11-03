@@ -1,6 +1,6 @@
 # Current state
 
-**As of:** 2026-10-15
+**As of:** 2026-11-03
 **Purpose:** what actually exists and runs today, so work can resume without
 rereading the history. Updated whenever the answer to "what is deployed?"
 changes.
@@ -153,6 +153,13 @@ without a session, signed relatively so the signature survives the web tier's
 proxy. Both mails go to `FRONTEND_URL` in the account's language; the reset
 mail previously threw rather than sending. Turnstile guards sign-up and is off
 wherever no secret is configured.
+
+**Photographs** (`HW-E12-F01-T01`, `T02`, Phase R) — `POST
+/api/v1/uploads/{province}/{district}/{local_level}` for a signed-in citizen
+with a confirmed address, validated by magic bytes rather than by name, then
+`ProcessImage` re-encodes to WebP at two sizes and deletes the original, which
+is what removes EXIF and GPS. Everything stays on the private disk: nothing
+can approve a report yet. R2 buckets are `HW-E12-F01-T03`.
 
 **Saved wards and the account corner** (`HW-E30-F02-T01`, `T02`,
 `HW-E30-F01-T04`, Phase Q) — `/api/v1/me/wards` (list, add, remove, set the

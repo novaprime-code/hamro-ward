@@ -2,6 +2,64 @@
 
 Project documentation and architecture changes. Newest first.
 
+## 2026-11-03 — Phase R: photographs for a report
+
+### Taking one in (`HW-E12-F01-T01`)
+
+`POST /api/v1/uploads/{province}/{district}/{local_level}`. The municipality
+is in the path, not the body, so `ResolveTenant` has opened the right database
+before the handler runs and the object key sits under the right prefix by
+construction. `docs/06` sketched a bare `/uploads`; a photograph belongs to
+exactly one municipality from the moment it exists, and every other
+tenant-scoped route in this API already says so in its URL.
+
+What a file **is** comes from its bytes — magic bytes for JPEG, PNG, WebP and
+the HEIC brands — never from its name or the `Content-Type` the browser
+attached, both of which are written by whoever is uploading. A PHP script or
+an SVG called `photo.jpg` is refused, and refused before anything is written,
+so nothing is left behind for a later bug to find and serve.
+
+Signed in, confirmed address, Turnstile, and twenty an hour: this is the only
+endpoint on the platform that writes a file.
+
+HEIC is recognised but refused here, because GD cannot decode one and this
+image carries no Imagick. Refusing at the form, with the iPhone setting that
+fixes it, beats accepting and failing in a worker ten minutes later. Browsers
+normally convert it while downscaling (FR-MED-04).
+
+### Making it safe to show (`HW-E12-F01-T02`)
+
+`ProcessImage` decodes to pixels and writes new WebP files from those pixels,
+at 480 and 1600 on the long edge. Stripping the metadata is not a step in that
+— it is a consequence of it. EXIF, GPS and XMP live in the container around
+the pixels and are simply not carried across, so there is no "remove the GPS
+tag" call for a future format to slip past.
+
+Then the original is deleted. It is the one copy that still holds where the
+photograph was taken, which on a report about someone's own street is a home
+address.
+
+Proved with a fixture that really does carry coordinates (27°42′25″N,
+85°18′55″E), rather than with an image we hope has some.
+
+### Private, and staying that way (FR-MED-03)
+
+Everything lands on the private disk; nothing is copied to the public one,
+because nothing can approve a report yet (`HW-E14`). Both disks default to
+local storage, so a developer's machine and CI need no cloud account; the R2
+buckets are `HW-E12-F01-T03`.
+
+### Also
+
+* `gd` added to the API image. It was not there, so the job would have fataled
+  in production — found by reading the Dockerfile, not by running it. CI
+  already installs it.
+* The tenant isolation suite gained `TENANT_WRITE_ROUTES`: routes that open a
+  tenant but cannot be exercised by its fetch-and-compare loop. They are not
+  exempt from being proven isolated, only from being proven there, and each
+  must name the test that does.
+
+
 ## 2026-10-15 — Phase Q: saved wards, and a way into the account
 
 ### The wards a citizen saves (`HW-E30-F02-T01`)

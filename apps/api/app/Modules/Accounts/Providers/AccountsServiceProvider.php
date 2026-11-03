@@ -83,6 +83,17 @@ final class AccountsServiceProvider extends ServiceProvider
             }
         });
 
+        /*
+         * Photographs. Twenty an hour per account is several reports' worth;
+         * the per-address limit is what a shared connection in an office or a
+         * campus needs, and both are far below what it would take to fill a
+         * bucket.
+         */
+        RateLimiter::for('uploads', fn (Request $request): array => [
+            Limit::perHour(20)->by((string) $request->user()?->getAuthIdentifier()),
+            Limit::perHour(60)->by((string) $request->ip()),
+        ]);
+
         Event::listen(Login::class, StampStaffSignIn::class);
     }
 }

@@ -44,12 +44,33 @@ beforeEach(function (): void {
     $this->seed(PositionSeeder::class);
 });
 
-/** Endpoints that resolve a tenant, and so must be proven isolated below. */
+/**
+ * Public reads that resolve a tenant. Every one is fetched below, in both
+ * municipalities, and its answer checked for the other one's markers.
+ */
 const TENANT_ROUTES = [
     'api.v1.evidence.show',
     'api.v1.local-levels.show',
     'api.v1.persons.show',
     'api.v1.wards.show',
+];
+
+/**
+ * Routes that resolve a tenant but cannot be exercised by the loop below,
+ * because they are writes needing a signed-in citizen and a payload rather
+ * than a URL that can simply be fetched.
+ *
+ * They are NOT exempt from being proven isolated — only from being proven
+ * here. Each one names where that proof lives, and a route added to this list
+ * without such a test is a route nobody is checking:
+ *
+ *   api.v1.uploads.store  tests/Feature/Media/UploadTest.php — "keeps one
+ *                         municipality's photographs out of another's": the
+ *                         row lands in the uploading municipality's database
+ *                         and the object key under its own prefix.
+ */
+const TENANT_WRITE_ROUTES = [
+    'api.v1.uploads.store',
 ];
 
 /**
@@ -224,9 +245,13 @@ it('classifies every API route as tenant-scoped or central', function (): void {
     sort($tenant);
     sort($central);
 
+    $tenantScoped = array_merge(TENANT_ROUTES, TENANT_WRITE_ROUTES);
+    sort($tenantScoped);
+
     // A new endpoint fails here until it is added to one list — and, if it
-    // opens a tenant, to ownRequests() so the assertions below cover it.
-    expect($tenant)->toBe(TENANT_ROUTES)
+    // opens a tenant, either to ownRequests() so the assertions below cover
+    // it, or to TENANT_WRITE_ROUTES naming the test that does.
+    expect($tenant)->toBe($tenantScoped)
         ->and($central)->toBe(CENTRAL_ROUTES);
 });
 
