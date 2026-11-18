@@ -90,7 +90,9 @@ final class ImageFile
 
         $size = @getimagesize($path);
 
-        if ($size === false || ($size[0] ?? 0) <= 0 || ($size[1] ?? 0) <= 0) {
+        // getimagesize either fails or returns both dimensions; there is no
+        // third case to defend against.
+        if ($size === false || $size[0] <= 0 || $size[1] <= 0) {
             /*
              * A HEIC that PHP cannot measure is still a HEIC. The dimensions
              * stay unknown and the caller refuses it for a reason it can

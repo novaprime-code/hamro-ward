@@ -248,7 +248,8 @@ it('strips every trace of the camera, writes both sizes and deletes the original
 
             $after = @exif_read_data($variantPath);
 
-            expect($after === false || $after === null || ! isset($after['GPSLatitude']))->toBeTrue()
+            // exif_read_data gives an array or false, never null.
+            expect($after === false || ! isset($after['GPSLatitude']))->toBeTrue()
                 ->and($bytes)->not->toContain('Exif')
                 ->and(substr($bytes, 8, 4))->toBe('WEBP');
         }
