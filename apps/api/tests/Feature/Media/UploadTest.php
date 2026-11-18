@@ -110,7 +110,7 @@ it('accepts a photograph, stores it privately under the municipality’s prefix 
             // Nothing to link to: it is private until the report is approved.
             ->assertJsonMissingPath('data.url');
 
-        $media = Media::query()->sole();
+        $media = inTenant($tenant, fn (): Media => Media::query()->sole());
 
         expect($media->status)->toBe(MediaStatus::Uploaded)
             ->and($media->visibility)->toBe(MediaVisibility::Private)
@@ -137,7 +137,7 @@ it('decides what a file is from its bytes, not its name', function (array $conte
             ->assertUnprocessable()
             ->assertJsonValidationErrors('photo');
 
-        expect(Media::query()->count())->toBe(0);
+        expect(inTenant($tenant, fn (): int => Media::query()->count()))->toBe(0);
         Queue::assertNothingPushed();
     });
 })->with([
@@ -158,7 +158,7 @@ it('refuses a photograph larger than the limit', function (): void {
             ->assertUnprocessable()
             ->assertJsonValidationErrors('photo');
 
-        expect(Media::query()->count())->toBe(0);
+        expect(inTenant($tenant, fn (): int => Media::query()->count()))->toBe(0);
     });
 });
 
@@ -173,7 +173,7 @@ it('refuses a photograph with too many pixels', function (): void {
             ->assertUnprocessable()
             ->assertJsonValidationErrors('photo');
 
-        expect(Media::query()->count())->toBe(0);
+        expect(inTenant($tenant, fn (): int => Media::query()->count()))->toBe(0);
     });
 });
 
@@ -191,7 +191,7 @@ it('refuses an upload whose bot check fails', function (): void {
             ->assertUnprocessable()
             ->assertJsonValidationErrors('turnstile_token');
 
-        expect(Media::query()->count())->toBe(0);
+        expect(inTenant($tenant, fn (): int => Media::query()->count()))->toBe(0);
     });
 });
 
@@ -207,11 +207,18 @@ it('is closed to visitors, and to accounts that have not confirmed an address', 
             ->assertForbidden()
             ->assertJsonPath('email_verification_required', true);
 
-        expect(Media::query()->count())->toBe(0);
+        expect(inTenant($tenant, fn (): int => Media::query()->count()))->toBe(0);
     });
 });
 
 it('strips every trace of the camera, writes both sizes and deletes the original', function (): void {
+    /*
+     * The suite runs the queue synchronously (phpunit.xml), so without this
+     * the job would run the instant the upload dispatched it and there would
+     * be no "before processing" to look at. Held back, and run by hand below.
+     */
+    Queue::fake();
+
     uploadableTenant(function (Tenant $tenant): void {
         $citizen = User::factory()->create();
 
@@ -219,7 +226,7 @@ it('strips every trace of the camera, writes both sizes and deletes the original
             ->post(uploadUrl($tenant), ['photo' => photoWithGps()], ['Accept' => 'application/json'])
             ->assertCreated();
 
-        $media = Media::query()->sole();
+        $media = inTenant($tenant, fn (): Media => Media::query()->sole());
         $originalKey = (string) $media->original_key;
         $disk = Storage::disk('local');
 
@@ -232,7 +239,7 @@ it('strips every trace of the camera, writes both sizes and deletes the original
 
         (new ProcessImage($tenant->id, $media->id))->handle(app(TenantManager::class));
 
-        $media->refresh();
+        $media = inTenant($tenant, fn (): Media => Media::query()->sole());
 
         expect($media->status)->toBe(MediaStatus::Ready)
             ->and($media->original_key)->toBeNull()
@@ -268,22 +275,29 @@ it('strips every trace of the camera, writes both sizes and deletes the original
 });
 
 it('can be told to process the same photograph twice', function (): void {
+    /*
+     * The suite runs the queue synchronously (phpunit.xml), so without this
+     * the job would run the instant the upload dispatched it and there would
+     * be no "before processing" to look at. Held back, and run by hand below.
+     */
+    Queue::fake();
+
     uploadableTenant(function (Tenant $tenant): void {
         testCase()->actingAs(User::factory()->create())
             ->post(uploadUrl($tenant), ['photo' => photoWithGps()], ['Accept' => 'application/json'])
             ->assertCreated();
 
-        $media = Media::query()->sole();
+        $media = inTenant($tenant, fn (): Media => Media::query()->sole());
         $job = new ProcessImage($tenant->id, $media->id);
         $tenancy = app(TenantManager::class);
 
         $job->handle($tenancy);
-        $first = $media->fresh();
+        $first = inTenant($tenant, fn (): Media => Media::query()->sole());
 
         // The original is already gone; a second run must not take that as a
         // failure, and must not touch what the first run produced.
         $job->handle($tenancy);
-        $second = $media->fresh();
+        $second = inTenant($tenant, fn (): Media => Media::query()->sole());
 
         expect($second->status)->toBe(MediaStatus::Ready)
             ->and($second->variants)->toBe($first->variants)
@@ -292,19 +306,26 @@ it('can be told to process the same photograph twice', function (): void {
 });
 
 it('records why processing failed, in words', function (): void {
+    /*
+     * The suite runs the queue synchronously (phpunit.xml), so without this
+     * the job would run the instant the upload dispatched it and there would
+     * be no "before processing" to look at. Held back, and run by hand below.
+     */
+    Queue::fake();
+
     uploadableTenant(function (Tenant $tenant): void {
         testCase()->actingAs(User::factory()->create())
             ->post(uploadUrl($tenant), ['photo' => photoWithGps()], ['Accept' => 'application/json'])
             ->assertCreated();
 
-        $media = Media::query()->sole();
+        $media = inTenant($tenant, fn (): Media => Media::query()->sole());
 
         // The bytes vanish between upload and processing.
         Storage::disk('local')->delete((string) $media->original_key);
 
         (new ProcessImage($tenant->id, $media->id))->handle(app(TenantManager::class));
 
-        $media->refresh();
+        $media = inTenant($tenant, fn (): Media => Media::query()->sole());
 
         expect($media->status)->toBe(MediaStatus::Failed)
             ->and($media->error)->not->toBeNull()
@@ -332,15 +353,11 @@ it('keeps one municipality’s photographs out of another’s', function (): voi
 
             // Each row is in its own database, and each key under its own
             // prefix: neither municipality can see or address the other's.
-            app(TenantManager::class)->run($tenantOne, function () use ($tenantOne): void {
-                $media = Media::query()->sole();
-                expect($media->storage_prefix)->toStartWith("tenants/{$tenantOne->tenant_key}/");
-            });
+            foreach ([$tenantOne, $tenantTwo] as $each) {
+                $media = inTenant($each, fn (): Media => Media::query()->sole());
 
-            app(TenantManager::class)->run($tenantTwo, function () use ($tenantTwo): void {
-                $media = Media::query()->sole();
-                expect($media->storage_prefix)->toStartWith("tenants/{$tenantTwo->tenant_key}/");
-            });
+                expect($media->storage_prefix)->toStartWith("tenants/{$each->tenant_key}/");
+            }
         }, $second);
     }, $first);
 });
