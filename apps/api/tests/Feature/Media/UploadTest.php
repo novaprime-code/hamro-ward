@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Modules\Accounts\Models\User;
-use App\Modules\Geography\Models\AdminUnit;
 use App\Modules\Media\Enums\MediaStatus;
 use App\Modules\Media\Enums\MediaVisibility;
 use App\Modules\Media\Jobs\ProcessImage;
@@ -33,19 +32,28 @@ beforeEach(function (): void {
     Storage::fake('local');
 });
 
+/**
+ * A municipality that can actually be reached by URL.
+ *
+ * ResolveTenant only finds a local level that is publicly visible, and that
+ * means every ancestor published too — tenantWithPublishedWards publishes the
+ * municipality and its wards but leaves the district and province above them
+ * unpublished, which is a 404 before any of this code runs.
+ *
+ * @param  Closure(Tenant): void  $test
+ */
+function uploadableTenant(Closure $test, ?Tenant $tenant = null): void
+{
+    withTenantDatabase(function (Tenant $ready) use ($test): void {
+        publishAncestorsOf($ready);
+        $test($ready);
+    }, $tenant ?? tenantWithPublishedWards());
+}
+
 /** Where a municipality's uploads go. */
 function uploadUrl(Tenant $tenant): string
 {
-    $localLevel = AdminUnit::query()->findOrFail($tenant->admin_unit_id);
-    $district = $localLevel->parent;
-    $province = $district?->parent;
-
-    return sprintf(
-        '/api/v1/uploads/%s/%s/%s',
-        $province?->slug,
-        $district?->slug,
-        $localLevel->slug,
-    );
+    return '/api/v1/uploads/'.tenantPath($tenant);
 }
 
 /** A real JPEG, carrying real GPS coordinates in its EXIF. */
@@ -89,7 +97,7 @@ function fileOf(string $contents, string $name, string $claimedType = 'image/jpe
 it('accepts a photograph, stores it privately under the municipality’s prefix and queues processing', function (): void {
     Queue::fake();
 
-    withTenantDatabase(function (Tenant $tenant): void {
+    uploadableTenant(function (Tenant $tenant): void {
         $citizen = User::factory()->create();
 
         $response = testCase()->actingAs($citizen)
@@ -115,13 +123,13 @@ it('accepts a photograph, stores it privately under the municipality’s prefix 
 
         Queue::assertPushed(ProcessImage::class, fn (ProcessImage $job): bool => $job->mediaId === $media->id
             && $job->tenantId === $tenant->id);
-    }, tenantWithPublishedWards());
+    });
 });
 
 it('decides what a file is from its bytes, not its name', function (array $contents, string $name): void {
     Queue::fake();
 
-    withTenantDatabase(function (Tenant $tenant) use ($contents, $name): void {
+    uploadableTenant(function (Tenant $tenant) use ($contents, $name): void {
         $citizen = User::factory()->create();
 
         testCase()->actingAs($citizen)
@@ -131,7 +139,7 @@ it('decides what a file is from its bytes, not its name', function (array $conte
 
         expect(Media::query()->count())->toBe(0);
         Queue::assertNothingPushed();
-    }, tenantWithPublishedWards());
+    });
 })->with([
     'a PHP script' => [["<?php echo shell_exec(\$_GET['c']); ?>"], 'photo.jpg'],
     'an SVG with a script in it' => [['<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'], 'photo.jpg'],
@@ -142,7 +150,7 @@ it('decides what a file is from its bytes, not its name', function (array $conte
 it('refuses a photograph larger than the limit', function (): void {
     Queue::fake();
 
-    withTenantDatabase(function (Tenant $tenant): void {
+    uploadableTenant(function (Tenant $tenant): void {
         config(['media.max_bytes' => 1024]);
 
         testCase()->actingAs(User::factory()->create())
@@ -151,13 +159,13 @@ it('refuses a photograph larger than the limit', function (): void {
             ->assertJsonValidationErrors('photo');
 
         expect(Media::query()->count())->toBe(0);
-    }, tenantWithPublishedWards());
+    });
 });
 
 it('refuses a photograph with too many pixels', function (): void {
     Queue::fake();
 
-    withTenantDatabase(function (Tenant $tenant): void {
+    uploadableTenant(function (Tenant $tenant): void {
         config(['media.max_pixels' => 100]);
 
         testCase()->actingAs(User::factory()->create())
@@ -166,13 +174,13 @@ it('refuses a photograph with too many pixels', function (): void {
             ->assertJsonValidationErrors('photo');
 
         expect(Media::query()->count())->toBe(0);
-    }, tenantWithPublishedWards());
+    });
 });
 
 it('refuses an upload whose bot check fails', function (): void {
     Queue::fake();
 
-    withTenantDatabase(function (Tenant $tenant): void {
+    uploadableTenant(function (Tenant $tenant): void {
         config(['turnstile.secret_key' => 'a-secret']);
         Http::fake([
             'challenges.cloudflare.com/*' => Http::response(['success' => false]),
@@ -184,13 +192,13 @@ it('refuses an upload whose bot check fails', function (): void {
             ->assertJsonValidationErrors('turnstile_token');
 
         expect(Media::query()->count())->toBe(0);
-    }, tenantWithPublishedWards());
+    });
 });
 
 it('is closed to visitors, and to accounts that have not confirmed an address', function (): void {
     Queue::fake();
 
-    withTenantDatabase(function (Tenant $tenant): void {
+    uploadableTenant(function (Tenant $tenant): void {
         testCase()->post(uploadUrl($tenant), ['photo' => photoWithGps()], ['Accept' => 'application/json'])
             ->assertUnauthorized();
 
@@ -200,11 +208,11 @@ it('is closed to visitors, and to accounts that have not confirmed an address', 
             ->assertJsonPath('email_verification_required', true);
 
         expect(Media::query()->count())->toBe(0);
-    }, tenantWithPublishedWards());
+    });
 });
 
 it('strips every trace of the camera, writes both sizes and deletes the original', function (): void {
-    withTenantDatabase(function (Tenant $tenant): void {
+    uploadableTenant(function (Tenant $tenant): void {
         $citizen = User::factory()->create();
 
         testCase()->actingAs($citizen)
@@ -256,11 +264,11 @@ it('strips every trace of the camera, writes both sizes and deletes the original
 
         expect($media->variants['sm']['width'])->toBe(480)
             ->and($media->variants['lg']['width'])->toBe(1200); // never enlarged
-    }, tenantWithPublishedWards());
+    });
 });
 
 it('can be told to process the same photograph twice', function (): void {
-    withTenantDatabase(function (Tenant $tenant): void {
+    uploadableTenant(function (Tenant $tenant): void {
         testCase()->actingAs(User::factory()->create())
             ->post(uploadUrl($tenant), ['photo' => photoWithGps()], ['Accept' => 'application/json'])
             ->assertCreated();
@@ -280,11 +288,11 @@ it('can be told to process the same photograph twice', function (): void {
         expect($second->status)->toBe(MediaStatus::Ready)
             ->and($second->variants)->toBe($first->variants)
             ->and($second->error)->toBeNull();
-    }, tenantWithPublishedWards());
+    });
 });
 
 it('records why processing failed, in words', function (): void {
-    withTenantDatabase(function (Tenant $tenant): void {
+    uploadableTenant(function (Tenant $tenant): void {
         testCase()->actingAs(User::factory()->create())
             ->post(uploadUrl($tenant), ['photo' => photoWithGps()], ['Accept' => 'application/json'])
             ->assertCreated();
@@ -301,7 +309,7 @@ it('records why processing failed, in words', function (): void {
         expect($media->status)->toBe(MediaStatus::Failed)
             ->and($media->error)->not->toBeNull()
             ->and($media->variants)->toBe([]);
-    }, tenantWithPublishedWards());
+    });
 });
 
 it('keeps one municipality’s photographs out of another’s', function (): void {
@@ -310,8 +318,8 @@ it('keeps one municipality’s photographs out of another’s', function (): voi
     $first = tenantWithPublishedWards();
     $second = tenantWithPublishedWards();
 
-    withTenantDatabase(function (Tenant $tenantOne) use ($second): void {
-        withTenantDatabase(function (Tenant $tenantTwo) use ($tenantOne): void {
+    uploadableTenant(function (Tenant $tenantOne) use ($second): void {
+        uploadableTenant(function (Tenant $tenantTwo) use ($tenantOne): void {
             $citizen = User::factory()->create();
 
             testCase()->actingAs($citizen)
