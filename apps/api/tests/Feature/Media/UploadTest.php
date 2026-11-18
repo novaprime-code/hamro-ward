@@ -239,13 +239,23 @@ it('strips every trace of the camera, writes both sizes and deletes the original
 
         (new ProcessImage($tenant->id, $media->id))->handle(app(TenantManager::class));
 
-        $media = inTenant($tenant, fn (): Media => Media::query()->sole());
+        /*
+         * Inside the tenant, because a date cast asks the connection for its
+         * format: reading processed_at with no tenant open throws, where
+         * reading a string column would not.
+         */
+        $media = inTenant($tenant, function () use ($tenant): Media {
+            $media = Media::query()->sole();
 
-        expect($media->status)->toBe(MediaStatus::Ready)
-            ->and($media->original_key)->toBeNull()
-            ->and($media->error)->toBeNull()
-            ->and($media->processed_at)->not->toBeNull()
-            ->and(array_keys($media->variants))->toEqualCanonicalizing(['sm', 'lg']);
+            expect($media->status)->toBe(MediaStatus::Ready)
+                ->and($media->original_key)->toBeNull()
+                ->and($media->error)->toBeNull()
+                ->and($media->processed_at)->not->toBeNull()
+                ->and($media->storage_prefix)->toStartWith("tenants/{$tenant->tenant_key}/media/")
+                ->and(array_keys($media->variants))->toEqualCanonicalizing(['sm', 'lg']);
+
+            return $media;
+        });
 
         // The original is gone: it was the only copy holding the location.
         $disk->assertMissing($originalKey);
