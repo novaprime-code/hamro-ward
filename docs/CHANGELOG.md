@@ -49,6 +49,28 @@ because nothing can approve a report yet (`HW-E14`). Both disks default to
 local storage, so a developer's machine and CI need no cloud account; the R2
 buckets are `HW-E12-F01-T03`.
 
+### Shrinking it before it leaves the phone (FR-MED-04)
+
+`lib/downscale.ts`: the browser draws the photograph onto a canvas at no more
+than 2,000px on the long edge and re-encodes it as a JPEG before the upload
+starts.
+
+Cost is the obvious reason — a phone camera's eight megabytes becomes a few
+hundred kilobytes, which on a prepaid connection is somebody's data budget —
+but the privacy one matters more. A canvas carries pixels and nothing else, so
+the coordinates of somebody's own street never leave their phone at all. The
+server still re-encodes, and must: a browser is not a thing to trust about
+what it sends.
+
+A browser that cannot decode the file (HEIC anywhere but Safari) hands the
+original over untouched and lets the server answer in words the person can
+act on, rather than guessing on its behalf.
+
+Measured in Chromium against a 4000×3000 photograph carrying real GPS
+coordinates: 2000×1500 out, 356 KB down to 26 KB, no EXIF marker left in the
+bytes, and `IMG_4821.HEIC` renamed to `IMG_4821.jpg` so the name matches what
+is actually being sent.
+
 ### Also
 
 * `gd` added to the API image. It was not there, so the job would have fataled

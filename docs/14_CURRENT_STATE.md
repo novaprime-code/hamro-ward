@@ -159,7 +159,9 @@ wherever no secret is configured.
 with a confirmed address, validated by magic bytes rather than by name, then
 `ProcessImage` re-encodes to WebP at two sizes and deletes the original, which
 is what removes EXIF and GPS. Everything stays on the private disk: nothing
-can approve a report yet. R2 buckets are `HW-E12-F01-T03`.
+can approve a report yet. R2 buckets are `HW-E12-F01-T03`. On the browser side
+`lib/downscale.ts` shrinks a photograph to 2,000px and re-encodes it before
+upload, which spares the data and keeps the GPS off the wire entirely.
 
 **Saved wards and the account corner** (`HW-E30-F02-T01`, `T02`,
 `HW-E30-F01-T04`, Phase Q) — `/api/v1/me/wards` (list, add, remove, set the
