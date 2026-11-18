@@ -6,6 +6,7 @@ use App\Modules\Accounts\Http\Controllers\MeController;
 use App\Modules\Accounts\Http\Controllers\UserWardsController;
 use App\Modules\Geography\Http\Controllers\LocalLevelController;
 use App\Modules\Geography\Http\Controllers\SearchController;
+use App\Modules\Media\Http\Controllers\UploadController;
 use App\Modules\Offices\Http\Controllers\PersonController;
 use App\Modules\Offices\Http\Controllers\WardController;
 use App\Modules\Provenance\Http\Controllers\EvidenceController;
@@ -127,6 +128,20 @@ Route::middleware(['auth:sanctum', 'auth.host'])->group(function (): void {
     Route::put('/me/wards/{saved_ward}/primary', [UserWardsController::class, 'makePrimary'])
         ->whereUuid('saved_ward')
         ->name('api.v1.me.wards.primary');
+});
+
+/*
+ * Photographs for a report (HW-E12-F01-T01, docs/06 §7).
+ *
+ * Inside ResolveTenant, like every other route that touches a municipality's
+ * data: the photograph belongs to one municipality from the moment it exists,
+ * and the URL saying so is what puts its object key under that tenant's
+ * prefix. Throttled hard — this is the only endpoint on the platform that
+ * writes a file.
+ */
+Route::middleware(['auth:sanctum', 'auth.host', 'throttle:uploads', ResolveTenant::class])->group(function (): void {
+    Route::post('/uploads/{province}/{district}/{local_level}', UploadController::class)
+        ->name('api.v1.uploads.store');
 });
 
 // Admin host only: EnsureAdminHost (global) answers 404 anywhere else.
