@@ -9,8 +9,10 @@ use App\Modules\Media\Enums\MediaVisibility;
 use App\Modules\Media\Jobs\ProcessImage;
 use App\Modules\Media\Models\Media;
 use App\Modules\Tenancy\Models\Tenant;
+use App\Modules\Tenancy\TenantManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
@@ -172,8 +174,8 @@ it('refuses an upload whose bot check fails', function (): void {
 
     withTenantDatabase(function (Tenant $tenant): void {
         config(['turnstile.secret_key' => 'a-secret']);
-        Illuminate\Support\Facades\Http::fake([
-            'challenges.cloudflare.com/*' => Illuminate\Support\Facades\Http::response(['success' => false]),
+        Http::fake([
+            'challenges.cloudflare.com/*' => Http::response(['success' => false]),
         ]);
 
         testCase()->actingAs(User::factory()->create())
@@ -220,7 +222,7 @@ it('strips every trace of the camera, writes both sizes and deletes the original
         expect($before)->toBeArray()
             ->and($before['GPSLatitude'] ?? null)->not->toBeNull();
 
-        (new ProcessImage($tenant->id, $media->id))->handle(app(App\Modules\Tenancy\TenantManager::class));
+        (new ProcessImage($tenant->id, $media->id))->handle(app(TenantManager::class));
 
         $media->refresh();
 
@@ -264,7 +266,7 @@ it('can be told to process the same photograph twice', function (): void {
 
         $media = Media::query()->sole();
         $job = new ProcessImage($tenant->id, $media->id);
-        $tenancy = app(App\Modules\Tenancy\TenantManager::class);
+        $tenancy = app(TenantManager::class);
 
         $job->handle($tenancy);
         $first = $media->fresh();
@@ -291,7 +293,7 @@ it('records why processing failed, in words', function (): void {
         // The bytes vanish between upload and processing.
         Storage::disk('local')->delete((string) $media->original_key);
 
-        (new ProcessImage($tenant->id, $media->id))->handle(app(App\Modules\Tenancy\TenantManager::class));
+        (new ProcessImage($tenant->id, $media->id))->handle(app(TenantManager::class));
 
         $media->refresh();
 
@@ -321,12 +323,12 @@ it('keeps one municipality’s photographs out of another’s', function (): voi
 
             // Each row is in its own database, and each key under its own
             // prefix: neither municipality can see or address the other's.
-            app(App\Modules\Tenancy\TenantManager::class)->run($tenantOne, function () use ($tenantOne): void {
+            app(TenantManager::class)->run($tenantOne, function () use ($tenantOne): void {
                 $media = Media::query()->sole();
                 expect($media->storage_prefix)->toStartWith("tenants/{$tenantOne->tenant_key}/");
             });
 
-            app(App\Modules\Tenancy\TenantManager::class)->run($tenantTwo, function () use ($tenantTwo): void {
+            app(TenantManager::class)->run($tenantTwo, function () use ($tenantTwo): void {
                 $media = Media::query()->sole();
                 expect($media->storage_prefix)->toStartWith("tenants/{$tenantTwo->tenant_key}/");
             });
