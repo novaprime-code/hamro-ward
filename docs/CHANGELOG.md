@@ -40,7 +40,9 @@ photograph was taken, which on a report about someone's own street is a home
 address.
 
 Proved with a fixture that really does carry coordinates (27°42′25″N,
-85°18′55″E), rather than with an image we hope has some.
+85°18′55″E), rather than with an image we hope has some: the upload keeps
+them, and after processing `exif_read_data` finds nothing and the bytes
+contain no `Exif` marker at all.
 
 ### Private, and staying that way (FR-MED-03)
 
@@ -76,6 +78,13 @@ is actually being sent.
 * `gd` added to the API image. It was not there, so the job would have fataled
   in production — found by reading the Dockerfile, not by running it. CI
   already installs it.
+* The whole pipeline was exercised against a real tenant database and real
+  files: queued on the `media` queue, processed to two WebP sizes, original
+  deleted, re-running the job a no-op, a vanished file recorded as a failure
+  with its reason, and a PHP script, an SVG and an empty file each refused
+  without a row being written. The table's check constraints were tested
+  statement by statement, including that an original cannot be put back on a
+  row once it is `ready`.
 * The tenant isolation suite gained `TENANT_WRITE_ROUTES`: routes that open a
   tenant but cannot be exercised by its fetch-and-compare loop. They are not
   exempt from being proven isolated, only from being proven there, and each

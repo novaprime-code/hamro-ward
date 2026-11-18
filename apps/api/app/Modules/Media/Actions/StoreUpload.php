@@ -88,7 +88,7 @@ final class StoreUpload
             fclose($stream);
         }
 
-        $media = new Media();
+        $media = new Media;
         $media->forceFill([
             'id' => $id,
             'status' => MediaStatus::Uploaded->value,
